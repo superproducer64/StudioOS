@@ -1,0 +1,50 @@
+import Papa from 'papaparse';
+import { categorize } from './rules';
+export const sources = ['Venmo','Square','Bank','Card','PayPal'] as const;
+export type Source = typeof sources[number];
+export type Transaction = { id: string; date: string; description: string; amountCents: number; currency: string; category: string; kind: string; matchedRule: string | null; reviewed: boolean; source: Source; account: string; raw: Record<string,string> };
+export type Mapping = { date: string; description: string; amount?: string; debit?: string; credit?: string; currency?: string; id?: string; positiveIsExpense?: boolean };
+export function money(value: string): number {
+  const clean = value.trim().replace(/[$,\s]/g,'').replace(/^\((.*)\)$/, '-$1');
+  if (!/^[+-]?\d+(?:\.\d{1,2})?$/.test(clean)) throw new Error('Invalid amount: ' + value);
+  const sign = clean.startsWith('-') ? -1 : 1;
+  const [whole, fraction = ''] = clean.replace(/^[+-]/,'').split('.');
+  const cents = sign * (Number(whole)*100 + Number(fraction.padEnd(2,'0')));
+  if (!Number.isSafeInteger(cents)) throw new Error('Amount outside supported range');
+  return cents;
+}
+export function parseCsv(text: string) {
+  const result = Papa.parse<Record<string,string>>(text.replace(/^\uFEFF/,''), {header:true,skipEmptyLines:'greedy',transformHeader:h=>h.trim()});
+  if (result.errors.length) throw new Error(result.errors.map(e => e.message).join('; '));
+  if (!result.meta.fields?.length) throw new Error('CSV must include a header row');
+  return {headers:result.meta.fields,rows:result.data};
+}
+function dateISO(input: string) {
+  const v = input.trim();
+  let y: number, m: number, d: number;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/.exec(v);
+  const us = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: .*)?$/.exec(v);
+  if (iso) [y,m,d] = [Number(iso[1]),Number(iso[2]),Number(iso[3])];
+  else if (us) [y,m,d] = [Number(us[3]),Number(us[1]),Number(us[2])];
+  else throw new Error('Use YYYY-MM-DD or US MM/DD/YYYY dates');
+  const date = new Date(Date.UTC(y,m-1,d));
+  if (date.getUTCFullYear()!==y || date.getUTCMonth()!==m-1 || date.getUTCDate()!==d) throw new Error('Invalid date');
+  return date.toISOString().slice(0,10);
+}
+export function normalize(rows: Record<string,string>[], mapping: Mapping, source: Source, account: string) {
+  if (!account.trim()) throw new Error('Account name is required');
+  return rows.map((raw,index): Transaction => {
+    try {
+      const date = dateISO(raw[mapping.date] || '');
+      const description = (raw[mapping.description] || '').trim();
+      if (!description) throw new Error('Missing description');
+      const amountCents = mapping.amount ? money(raw[mapping.amount] || '') * (mapping.positiveIsExpense ? -1 : 1) : Math.abs(money(raw[mapping.credit || ''] || '0')) - Math.abs(money(raw[mapping.debit || ''] || '0'));
+      const currency = (raw[mapping.currency || ''] || 'USD').trim().toUpperCase();
+      if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Invalid currency code');
+      const external = raw[mapping.id || ''];
+      // Conservative identity: same-day identical purchases without a provider ID may collide. Review before saving.
+      const id = JSON.stringify([source,account.trim(),external || [date,description,amountCents,currency]]);
+      return {id,date,description,amountCents,currency,...categorize(description,amountCents),reviewed:false,source,account:account.trim(),raw};
+    } catch (error) { throw new Error('Row ' + (index+2) + ': ' + (error as Error).message); }
+  });
+}
