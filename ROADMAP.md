@@ -4,7 +4,7 @@ Principle: if it does not save time or improve decision making, it does not make
 
 ## v0.1 · FinanceOS
 Starter delivered: local imports, normalization, rules, review, dashboard, schema.
-Next: verify the Supabase email authentication UI and add finance-route protection; accounts CRUD; atomic persisted import batches; database deduplication; row-specific error reports; persisted category rules; manual correction rules; import history and reversal; date-filtered reports; two-user RLS tests and reconciliation.
+Next: Supabase email authentication/session lifecycle; accounts CRUD; atomic persisted import batches; database deduplication; row-specific error reports; persisted category rules; manual correction rules; import history and reversal; date-filtered reports; two-user RLS tests and reconciliation.
 
 ## v0.2
 Clients, projects, invoices/line items, subscriptions, monthly P&L, project profitability and recurring spend. Schema foundations included; workflow implementation remains.

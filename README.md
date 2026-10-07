@@ -13,10 +13,10 @@ Reconstructed from the StudioOS conversation and requested scope. FinanceOS is M
 ## Included and working
 Next.js App Router + TypeScript UI, CSV column mapping for Venmo/Square/banks/cards/PayPal exports, integer-cent normalization, quoted CSV parsing, duplicate identity filtering, merchant suggestions, editable review queue, and reviewed USD dashboard. All sources use a common mapped importer, not certified provider-specific adapters. The local ledger uses browser localStorage; it is device/browser-specific and suitable for synthetic demo data. No remote upload occurs.
 
-## Supabase setup (project verified; ledger persistence pending)
-Copy .env.example to .env.local and fill the project URL and browser-safe anon/publishable key. Create a Supabase project and apply supabase/migrations/001_initial_schema.sql once. Create a user through Supabase Auth; replace target_user in supabase/seed.sql with their UUID and run seed once. Seed is intentionally not idempotent. The client factory is in lib/supabase.ts. The /login page includes email/password signup, sign-in, session display and sign-out. Account CRUD, protected finance routes and persisted imports remain next implementation tasks. Signing in does not protect or migrate the browser-local ledger.
+## Supabase setup (prepared, not connected)
+Copy .env.example to .env.local and fill the project URL and browser-safe anon/publishable key. Create a Supabase project and apply supabase/migrations/001_initial_schema.sql once. Create a user through Supabase Auth; replace target_user in supabase/seed.sql with their UUID and run seed once. Seed is intentionally not idempotent. The client factory is in lib/supabase.ts. Authentication screens, session handling, account CRUD and persisted imports are next implementation tasks, not working features in this ZIP.
 
-Every business table has owner-only RLS; composite foreign keys prevent cross-owner links. Future multi-user organizations require a separate membership model. No service-role key belongs in NEXT_PUBLIC variables. The supplied project URL and publishable key were verified against the live Auth settings endpoint (HTTP 200). The accounts table was not found in the REST schema cache (PGRST205); the starter schema still needs to be applied. Database schema and RLS have not been applied or tested against a live project.
+Every business table has owner-only RLS; composite foreign keys prevent cross-owner links. Future multi-user organizations require a separate membership model. No service-role key belongs in NEXT_PUBLIC variables. Database schema has not been applied or tested against a live project.
 
 ## CSV conventions and limits
 Remove statement preambles so the first row contains unique headers. Dates accept YYYY-MM-DD or US MM/DD/YYYY, optionally with a trailing timestamp. Amounts accept a decimal point, optional dollar sign, comma thousands separators, and parentheses for negatives. Use signed amount OR separate debit/credit columns; money out is negative. Toggle positive-is-expense for applicable card exports. Currency defaults to USD; no conversion occurs. Map stable provider IDs whenever possible. Without them, identical date/description/amount/currency records within an account collide and are skipped; validate legitimate repeats before use. Provider refunds and fees need manual review. PayPal gross/net/fee columns must be deliberately selected; fees are not split automatically. Venmo payment direction must already be represented by signed amounts. Square Banking matches suggest transfers, but purchases from the account need correction. Gemini and Apple labels are broad suggestions. No rule is tax advice.
@@ -29,8 +29,3 @@ npm run typecheck · npm test · npm run build. See VALIDATION.md for the actual
 ## References
 Framework setup: https://nextjs.org/docs/app/getting-started/installation
 Database isolation: https://supabase.com/docs/guides/database/postgres/row-level-security
-
-## Project destinations
-GitHub: https://github.com/superproducer64/StudioOS
-Supabase: https://igioxmzxvtisweesgnxw.supabase.co
-The supplied publishable key is configured in the local working copy only. The GitHub source and downloadable ZIP omit .env.local; copy .env.example to .env.local and paste your publishable key before starting /login. Never use a secret or service-role key.
