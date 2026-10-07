@@ -1,12 +1,13 @@
-# Packaging validation
+# Validation · October 6, 2026
 
-Rebuilt October 6, 2026 for the StudioOS handoff.
+- npm ci succeeded using the lockfile.
+- npm run typecheck passed.
+- npm test passed: 7 tests cover integer cents, malformed amounts, quoted CSV, raw preservation, dates, debit/credit/card signs, merchant rules, transfers, provider IDs, refunds, date ranges and currency exclusions.
+- npm run build passed with Next.js 16.4.0; Dashboard, Accounts, Import, Review, Rules, Import history, Login and Foundations routes generated.
+- Supabase migrations 001 and 002 applied successfully to igioxmzxvtisweesgnxw through the authenticated SQL Editor.
+- Read-only public API probe returned permission denied for accounts without a user session, as intended.
+- supabase/tests/finance_rls.sql passed against the live database: atomic imports, repeated imports, invalid-batch rollback, review approval, reversal/restoration, audit capture, idempotent rule seeding, cross-user read isolation, foreign-key ownership, cross-owner writes and audit-write denial. Fixtures had no passwords/emails and were rolled back.
 
-- Dependency installation succeeded; package-lock.json included.
-- `npm run build`: passed with Next.js 16.4.0; dashboard, import, review and foundations routes generated.
-- `npm run typecheck`: passed.
-- `npm test`: passed, 6 tests covering integer-cent amounts, malformed input, quoted CSV, normalization/raw preservation, invalid dates, debit/credit and card signs, unknown vendors, transfers, refunds and provider identity.
-- The test command compiles TypeScript and uses the native Node test runner. A first attempt with tsx encountered a Windows environment error; tsx was removed from the package.
-- Application source is typechecked; third-party declaration checking uses the standard Next.js skipLibCheck setting.
+Remaining verification: user signup and email confirmation, authenticated browser import/edit/reload/sign-out, provider-specific exports, recovery flows, production hosting and sustained load. The project is not deployed. No real financial data was used in validation.
 
-Not verified: interactive browser behavior, actual provider exports, live Supabase migrations, authentication, database persistence, cross-user RLS behavior or deployed production operation. SQL and seed files are prepared for implementation, not evidence of a connected backend. Do not use this demo as a system of record for real financial data.
+The local browser preview was checked: signed-out finance routes display the sign-in gate, and /login displays the account form. Exact localhost and 127.0.0.1 login redirect URLs were saved and verified in Supabase. GitHub upload remains blocked by integration/browser file access; no remote commit was created.
