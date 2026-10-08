@@ -20,10 +20,98 @@ export type Batch = {
   created_at: string;
 };
 export type SavedRule = Rule & { id: string; enabled: boolean };
+export type Client = {
+  id: string;
+  name: string;
+  email: string | null;
+  created_at: string;
+};
+export type Project = {
+  id: string;
+  client_id: string | null;
+  name: string;
+  status: string;
+  budget_cents: number;
+  created_at: string;
+};
+export type Invoice = {
+  id: string;
+  client_id: string;
+  project_id: string | null;
+  invoice_number: string;
+  status: string;
+  currency: string;
+  total_cents: number;
+  amount_paid_cents: number;
+  due_date: string | null;
+  issued_on: string | null;
+  paid_on: string | null;
+  created_at: string;
+};
+export type InvoiceItem = {
+  id: string;
+  invoice_id: string;
+  description: string;
+  quantity: number;
+  unit_price_cents: number;
+  created_at: string;
+};
+export type Subscription = {
+  id: string;
+  vendor: string;
+  category: string | null;
+  amount_cents: number;
+  currency: string;
+  cadence: string;
+  next_renewal: string | null;
+  active: boolean;
+  classification: string;
+  account_id: string | null;
+  created_at: string;
+};
+export type Asset = {
+  id: string;
+  name: string;
+  purchase_date: string | null;
+  cost_cents: number;
+  vendor: string | null;
+  serial_number: string | null;
+  location: string | null;
+  depreciable: boolean;
+  classification: string;
+  project_id: string | null;
+  created_at: string;
+};
+export type ImportTemplate = {
+  id: string;
+  account_id: string;
+  name: string;
+  source: string;
+  mapping: Record<string, string | boolean>;
+  created_at: string;
+};
+export type ProjectPnl = {
+  project_id: string;
+  name: string;
+  client_id: string | null;
+  status: string;
+  budget_cents: number;
+  income_cents: number;
+  expense_cents: number;
+  net_cents: number;
+  invoiced_cents: number;
+  paid_cents: number;
+};
+/**
+ * Loads every row the signed-in owner can see (RLS enforces ownership; the owner filter is a
+ * second guard). `tiebreak` is the unique column used for stable paging; pass the view's key
+ * column for views that have no `id`.
+ */
 export function useRows<T>(
   table: string,
   query: string = "*",
   order: string = "created_at",
+  tiebreak: string = "id",
 ) {
   const { user } = useAuth();
   const [rows, setRows] = useState<T[]>([]);
@@ -40,7 +128,7 @@ export function useRows<T>(
           .select(query)
           .eq("owner_id", user.id)
           .order(order)
-          .order("id")
+          .order(tiebreak)
           .range(start, start + 999);
         if (result.error) throw result.error;
         const chunk = result.data as unknown as T[];
@@ -53,7 +141,7 @@ export function useRows<T>(
     } finally {
       setReady(true);
     }
-  }, [user, table, query, order]);
+  }, [user, table, query, order, tiebreak]);
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -67,6 +155,17 @@ export function useRules() {
   const data = useRows<SavedRule>("category_rules");
   return { ...data, rules: data.rows };
 }
+export const useClients = () => useRows<Client>("clients", "*", "name");
+export const useProjects = () => useRows<Project>("projects", "*", "name");
+export const useInvoices = () => useRows<Invoice>("invoices");
+export const useInvoiceItems = () => useRows<InvoiceItem>("invoice_items");
+export const useSubscriptions = () =>
+  useRows<Subscription>("subscriptions", "*", "vendor");
+export const useAssets = () => useRows<Asset>("assets");
+export const useTemplates = () =>
+  useRows<ImportTemplate>("import_templates", "*", "name");
+export const useProjectPnl = () =>
+  useRows<ProjectPnl>("project_pnl", "*", "name", "project_id");
 type DbTransaction = {
   id: string;
   occurred_on: string;
@@ -80,6 +179,9 @@ type DbTransaction = {
   raw: Record<string, string>;
   account_id: string;
   voided: boolean;
+  classification: string;
+  tax_deductible: boolean;
+  project_id: string | null;
   accounts: Account;
   import_batches: { source: Transaction["source"] };
 };
@@ -104,6 +206,9 @@ export function useLedger() {
       source: t.import_batches?.source || "Bank",
       account: t.accounts?.name || t.account_id,
       raw: t.raw,
+      classification: t.classification,
+      taxDeductible: t.tax_deductible,
+      projectId: t.project_id,
     }));
   return { ...data, transactions };
 }
@@ -137,12 +242,23 @@ export async function reviewTransaction(
   category: string,
   kind: string,
   approved: boolean,
+  classification?: string,
+  taxDeductible?: boolean,
 ) {
   const { error } = await getSupabase().rpc("review_transaction", {
     p_id: id,
     p_category: category,
     p_kind: kind,
     p_approved: approved,
+    p_classification: classification,
+    p_tax_deductible: taxDeductible,
+  });
+  if (error) throw error;
+}
+export async function tagTransaction(id: string, projectId: string | null) {
+  const { error } = await getSupabase().rpc("tag_transaction", {
+    p_id: id,
+    p_project: projectId,
   });
   if (error) throw error;
 }

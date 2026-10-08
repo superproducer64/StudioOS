@@ -15,6 +15,10 @@ export type Transaction = {
   source: Source;
   account: string;
   raw: Record<string, string>;
+  // Set during review; new imports start unclassified and unflagged.
+  classification?: string;
+  taxDeductible?: boolean;
+  projectId?: string | null;
 };
 export type Mapping = {
   date: string;

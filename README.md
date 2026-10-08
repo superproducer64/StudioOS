@@ -1,4 +1,4 @@
-# BGP StudioOS · FinanceOS v0.1
+# BGP StudioOS · FinanceOS v0.2 + Marketing
 
 Next.js + TypeScript frontend, Supabase/Postgres backend. GitHub destination: https://github.com/superproducer64/StudioOS. Supabase project: igioxmzxvtisweesgnxw.
 
@@ -19,13 +19,16 @@ Create your StudioOS account using your own email and password, confirm the emai
 - Import history with reversible exclusion and restoration; records are retained.
 - Editable per-user merchant rules and idempotent default rule seeding.
 - Date-filtered reviewed income/expenses/net activity, excluding transfers and non-USD currencies; refunds reduce expenses.
-- Clients, projects, invoices, invoice line items and subscriptions database foundations, with future workflow placeholders.
+- v0.2 finance: business/personal/mixed classification (required to approve non-transfers), an owner-set "flag for tax review" note for expenses, project tagging, and a Reports page (monthly totals, business/personal split, project income/expense/invoiced/paid, recurring spend, tax-flag CSV for an accountant).
+- Clients, projects, invoices (line items drive the total; draft, sent, partial payments, paid, void; overdue derived from the due date), subscriptions and assets workflows.
+- Saved CSV mapping templates per account on the Import page.
+- Marketing module (migration 004): per-client brand profiles, an action plan, and a draft review queue. Approval is a recorded human decision enforced by database triggers; editing approved content withdraws approval; published content is locked; changes are written to an append-only audit table. Nothing is posted anywhere and no AI or analytics integration is connected yet. An export of the old browser-only marketing page can be imported (approvals are not carried over).
 
 The former browser-local demo is no longer loaded or silently migrated. Only the auth session is stored by the Supabase client; finance rows are fetched from the database. The route gate is a UI convenience; RLS enforces data access regardless of which page or API is used.
 
 ## Database setup
 
-Migrations 001_initial_schema.sql and 002_finance_workflows.sql were applied to the specified StudioOS project in this chat. Do not rerun them on that project. For another empty project, apply them in order. Functions commit_import, review_transaction, set_import_reversed and seed_finance_rules run with invoker privileges; the isolated audit trigger uses a restricted definer function. Owners cannot write audit records directly.
+Migrations 001 and 002 were applied to the StudioOS project earlier. **Migrations 003_finance_v02.sql and 004_marketing.sql are NOT applied yet.** Apply them in order (SQL editor or `supabase db push`) after reviewing; each runs in one transaction. Do not rerun earlier migrations. For another empty project, apply them in order. Functions commit_import, review_transaction, set_import_reversed and seed_finance_rules run with invoker privileges; the isolated audit trigger uses a restricted definer function. Owners cannot write audit records directly.
 
 Default rules are initialized from the Rules page for the signed-in user; no privileged key is required. The legacy seed.sql is an optional admin seed for a new project after inserting an existing Auth user UUID. Use the Rules page for this project instead.
 
@@ -39,7 +42,7 @@ Rules are editable suggestions; all rows require review. Square Banking can refe
 
 ## Validation
 
-npm test (7 tests), npm run typecheck and npm run build passed. The live Supabase database passed synthetic import/review/audit tests and two-user RLS checks. All fixtures were rolled back. See VALIDATION.md. Personal signup/email confirmation and a full authenticated browser import still need to be exercised by the user.
+`npm test` (16 unit tests), `npm run typecheck`, `npm run build` and `npm run test:db` pass. `test:db` applies every migration to an in-process Postgres (PGlite) with Supabase-style roles and `auth.uid()` and runs the SQL suites in `supabase/tests`: RLS isolation, grants, triggers, report math and the marketing approval workflow. It is a faithful local check, not the live database; run the same SQL suites against Supabase after applying 003/004. Signup/email confirmation and a full browser walkthrough still need to be exercised by you. See VALIDATION.md.
 
 ## References
 

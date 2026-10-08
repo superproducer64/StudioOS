@@ -3,7 +3,7 @@ import { AuthGate } from "@/lib/auth";
 import "./globals.css";
 export const metadata = {
   title: "BGP StudioOS",
-  description: "FinanceOS for BGP Studios",
+  description: "Finance and marketing workspace for BGP Studios",
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,7 +19,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ["/review", "Review"],
               ["/rules", "Rules"],
               ["/history", "Imports"],
-              ["/foundations", "Foundations"],
+              ["/reports", "Reports"],
+              ["/clients", "Clients"],
+              ["/projects", "Projects"],
+              ["/invoices", "Invoices"],
+              ["/subscriptions", "Subscriptions"],
+              ["/assets", "Assets"],
+              ["/marketing", "Marketing"],
               ["/login", "Account"],
             ].map(([href, name]) => (
               <Link key={href} href={href}>
@@ -29,7 +35,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </nav>
         </header>
         <main>
-          <aside>FinanceOS v0.1 · Private Supabase workspace</aside>
+          <aside>StudioOS · Private Supabase workspace</aside>
           <AuthGate>{children}</AuthGate>
         </main>
       </body>

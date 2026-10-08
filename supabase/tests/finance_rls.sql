@@ -20,7 +20,7 @@ begin
  if (select count(*) from public.import_batches)<>baseline or exists(select 1 from public.transactions where dedupe_key='must-rollback') then raise exception 'Atomic rollback failed'; end if;
  batch:=(result->>'batch_id')::uuid;
  select id into tx from public.transactions where dedupe_key='fixture-1';
- perform public.review_transaction(tx,'AI tools','expense',true);
+ perform public.review_transaction(tx,'AI tools','expense',true,'business');
  if not exists(select 1 from public.transactions where id=tx and review_status='approved') then raise exception 'Review failed'; end if;
  perform public.set_import_reversed(batch,true);
  if not exists(select 1 from public.transactions where id=tx and voided) then raise exception 'Reverse failed'; end if;

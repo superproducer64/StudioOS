@@ -9,11 +9,14 @@ import {
   type Mapping,
   type Transaction,
 } from "@/lib/imports";
-import { useAccounts, useRules, commitImport } from "@/lib/store";
+import { useAccounts, useRules, useTemplates, commitImport } from "@/lib/store";
+import { getSupabase } from "@/lib/supabase";
 import { defaultRules } from "@/lib/rules";
 export default function ImportPage() {
   const { accounts, ready, error: accountError } = useAccounts();
   const { rules, ready: rulesReady, error: rulesError } = useRules();
+  const templates = useTemplates();
+  const [templateName, setTemplateName] = useState("");
   const [accountId, setAccountId] = useState("");
   const [source, setSource] = useState<Source>("Bank");
   const [filename, setFilename] = useState("");
@@ -50,6 +53,47 @@ export default function ImportPage() {
       setMapping({ date: "", description: "", amount: "" });
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+  const accountTemplates = templates.rows.filter((t) => t.account_id === accountId);
+  function applyTemplate(id: string) {
+    const t = templates.rows.find((x) => x.id === id);
+    if (!t) return;
+    const saved = t.mapping as Record<string, string | boolean>;
+    const missing = Object.entries(saved)
+      .filter(([k, v]) => k !== "positiveIsExpense" && typeof v === "string" && v && !headers.includes(v))
+      .map(([, v]) => String(v));
+    const next: Record<string, string | boolean> = {};
+    for (const [k, v] of Object.entries(saved))
+      if (k === "positiveIsExpense" || (typeof v === "string" && headers.includes(v))) next[k] = v;
+    setMapping({ date: "", description: "", amount: "", ...next } as Mapping);
+    setSource(t.source as Source);
+    clear();
+    setError(
+      missing.length
+        ? "Template loaded, but these columns are not in this file: " + missing.join(", ") + ". Pick them again."
+        : "",
+    );
+  }
+  async function saveTemplate() {
+    setBusy(true);
+    setError("");
+    try {
+      const name = templateName.trim();
+      if (!name) throw new Error("Name the template first.");
+      const existing = accountTemplates.find((t) => t.name.toLowerCase() === name.toLowerCase());
+      const body = { account_id: accountId, name, source, mapping };
+      const r = existing
+        ? await getSupabase().from("import_templates").update({ source, mapping }).eq("id", existing.id)
+        : await getSupabase().from("import_templates").insert(body);
+      if (r.error) throw r.error;
+      setTemplateName("");
+      await templates.refresh();
+      setNotice(existing ? "Template updated." : "Template saved for this account.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
   const field = (key: keyof Mapping, label: string) => (
@@ -151,6 +195,41 @@ export default function ImportPage() {
               />
               Positive signed amounts are expenses
             </label>
+            {accountId && (
+              <div>
+                {accountTemplates.length > 0 && (
+                  <label>
+                    Saved mapping for this account
+                    <select
+                      disabled={busy}
+                      value=""
+                      onChange={(e) => applyTemplate(e.target.value)}
+                    >
+                      <option value="">Load a template…</option>
+                      {accountTemplates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label>
+                  Save this mapping as
+                  <input
+                    disabled={busy}
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                  />
+                </label>
+                <button
+                  disabled={busy || !templateName.trim() || !mapping.date || !mapping.description}
+                  onClick={() => void saveTemplate()}
+                >
+                  Save template
+                </button>
+              </div>
+            )}
             <button
               disabled={
                 busy ||

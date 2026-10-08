@@ -1,11 +1,11 @@
 # StudioOS project status
 
-Supabase: https://igioxmzxvtisweesgnxw.supabase.co
-Schema migrations 001 and 002 applied; live synthetic workflow and owner-isolation tests passed. Email authentication is enabled. Finance data now uses Supabase accounts, transactions, import batches and rules. No local demo data is migrated automatically.
+Repository: https://github.com/superproducer64/StudioOS
+Supabase project: igioxmzxvtisweesgnxw
 
-GitHub destination: https://github.com/superproducer64/StudioOS
-Upload is not complete. The connected integration returned HTTP 403 on content creation; local Git push did not complete. The authenticated GitHub browser is signed in, but its file uploader continues to report file-URL access disabled after the user enabled it and the browser connection was refreshed. No repository file was created. The local Git commit contains all 36 project files; .env.local is excluded. Restart Chrome or the ChatGPT extension before retrying, or manually drag the clean ZIP contents into GitHub's upload page and commit them.
+Live: migrations 001 and 002 (FinanceOS v0.1).
+On branch `feature/finance-v02-and-marketing-backend`, awaiting review: migrations 003 (finance v0.2) and 004 (marketing), the new screens, and the local database test harness. They have not been applied to the live database, and no deploy has happened.
 
-The local .env.local contains the supplied publishable key. It is excluded from GitHub and downloadable ZIPs. A new checkout requires copying .env.example to .env.local and entering that publishable key.
+Verified locally: unit tests, typecheck, production build, and the SQL suites against in-process Postgres. Not verified: the live Supabase project, browser walkthrough, and any external integration (none are connected).
 
-Next user step: create or sign in to your StudioOS account in the local preview, then create a USD account, initialize merchant rules and try the synthetic demo-bank.csv import. Personal credentials are entered by the user; no user password was created or collected by the agent.
+Next steps for the owner: review the PR, apply 003 then 004, sign in and try the flows (classify and approve a transaction, create a project and invoice, create a Mars Roofing brand profile and run a draft through approval). Decide whether to connect AI drafting and Search Console/Analytics; those need your credentials and are not started.
