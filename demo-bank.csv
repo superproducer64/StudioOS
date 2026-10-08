@@ -1,6 +1,0 @@
-Date,Description,Amount,Currency,Transaction ID
-2026-10-01,Client invoice payment,2500.00,USD,demo-1
-2026-10-02,OpenAI subscription,-20.00,USD,demo-2
-2026-10-03,Square Banking transfer,-500.00,USD,demo-3
-2026-10-04,FedEx Office printing,-42.75,USD,demo-4
-2026-10-05,Unknown merchant,-18.90,USD,demo-5
