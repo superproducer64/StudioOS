@@ -1,8 +1,16 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 import { useClients, useRows } from "@/lib/store";
+import {
+  analyticsSuggestions,
+  newSuggestions,
+  parseSearchConsoleCsv,
+  searchSuggestions,
+  type DateRange,
+  type Suggestion,
+} from "@/lib/insights";
 import {
   buildExport,
   channelLabels,
@@ -192,6 +200,174 @@ function Actions({
         <button disabled={busy || !title.trim()}>Add task</button>
       </form>
       {error && <p className="error">{error}</p>}
+    </section>
+  );
+}
+
+function Insights({
+  profile,
+  actions,
+  onChange,
+}: {
+  profile: BrandProfile;
+  actions: MarketingAction[];
+  onChange: () => Promise<void>;
+}) {
+  const [live, setLive] = useState<boolean | null>(null);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [found, setFound] = useState<Suggestion[]>([]);
+  const [range, setRange] = useState<DateRange | null>(null);
+  const [chosen, setChosen] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    fetch("/api/insights")
+      .then((r) => r.json())
+      .then((d: { configured?: boolean }) => setLive(!!d.configured))
+      .catch(() => setLive(false));
+  }, []);
+  function show(list: Suggestion[], r: DateRange) {
+    const fresh = newSuggestions(list, actions);
+    setFound(fresh);
+    setRange(r);
+    setChosen(Object.fromEntries(fresh.map((x) => [x.key, true])));
+    setNotice(
+      fresh.length
+        ? ""
+        : list.length
+          ? "Everything found is already in your plan."
+          : "Nothing met the thresholds. That is fine; there is no problem to flag.",
+    );
+  }
+  async function fromCsv(file?: File) {
+    if (!file) return;
+    setError("");
+    setNotice("");
+    setFound([]);
+    try {
+      if (!from || !to || from > to) throw new Error("Enter the dates the export covers first (from before through).");
+      if (file.size > 2 * 1024 * 1024) throw new Error("Use an export under 2 MB.");
+      show(searchSuggestions(parseSearchConsoleCsv(await file.text()), { start: from, end: to }), { start: from, end: to });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function pull() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    setFound([]);
+    try {
+      const session = (await getSupabase().auth.getSession()).data.session;
+      const res = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer " + (session?.access_token ?? "") },
+        body: JSON.stringify({ website: profile.website ?? "" }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        range?: DateRange;
+        searchConsole?: { suggestions: Suggestion[] } | null;
+        analytics?: { suggestions: Suggestion[] } | null;
+      };
+      if (!res.ok || !data.range) throw new Error(data.error ?? "Pull failed.");
+      show([...(data.searchConsole?.suggestions ?? []), ...(data.analytics?.suggestions ?? [])], data.range);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function add() {
+    if (!range) return;
+    setBusy(true);
+    setError("");
+    try {
+      const picked = found.filter((x) => chosen[x.key]);
+      if (!picked.length) throw new Error("Tick at least one suggestion.");
+      const r = await getSupabase()
+        .from("marketing_actions")
+        .insert(
+          picked.map((x) => ({
+            brand_profile_id: profile.id,
+            title: x.title,
+            reason: x.reason,
+            source: x.source,
+            source_date: range.end,
+            evidence: { ...x.evidence, key: x.key },
+          })),
+        );
+      if (r.error) throw r.error;
+      setFound([]);
+      setNotice(picked.length + " task(s) added to your plan.");
+      await onChange();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section>
+      <h2>Search and analytics</h2>
+      <p>
+        Turn real Search Console and Analytics numbers into suggested tasks. Each
+        task keeps the numbers and dates it came from. These are leads to check,
+        not predictions.
+      </p>
+      <div className="grid">
+        <label>
+          Export covers from
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label>
+          through
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </label>
+      </div>
+      <label>
+        Search Console export (Queries or Pages CSV)
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          disabled={busy}
+          onChange={(e) => {
+            void fromCsv(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      <button disabled={busy || !live || !profile.website} onClick={() => void pull()}>
+        Pull from Google
+      </button>
+      {live === false && <small>Live pulls are not set up (see docs/INSIGHTS.md). CSV import works without setup.</small>}
+      {live && !profile.website && <small> Add the brand website above first.</small>}
+      {error && <p className="error">{error}</p>}
+      {notice && <p role="status">{notice}</p>}
+      {found.length > 0 && range && (
+        <>
+          <h3>
+            Suggestions · {range.start} to {range.end}
+          </h3>
+          {found.map((x) => (
+            <label key={x.key}>
+              <input
+                type="checkbox"
+                checked={!!chosen[x.key]}
+                onChange={(e) => setChosen({ ...chosen, [x.key]: e.target.checked })}
+              />
+              <strong>{x.title}</strong> <span className="badge">{sourceLabels[x.source]}</span>
+              <br />
+              <small>{x.reason}</small>
+            </label>
+          ))}
+          <button disabled={busy} onClick={() => void add()}>
+            Add selected to plan
+          </button>
+        </>
+      )}
     </section>
   );
 }
@@ -522,6 +698,7 @@ export default function Marketing() {
         <>
           <Profile key={profile.id} p={profile} onSaved={all} />
           <Actions profile={profile} actions={myActions} onChange={all} />
+          <Insights profile={profile} actions={myActions} onChange={all} />
           <Drafts profile={profile} drafts={myDrafts} onChange={all} />
         </>
       )}

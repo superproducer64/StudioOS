@@ -19,3 +19,8 @@ The local browser preview was checked: signed-out finance routes display the sig
 - npm run test:db applies migrations 001-004 to in-process Postgres 18 (PGlite) with Supabase-style roles, auth.uid() and default grants, then runs the three SQL suites. It caught one real gap (DELETE was grantable on marketing drafts) which is fixed in 004.
 - 12 deliberate mutations (weakened triggers, checks, policies) were each caught by the suites.
 - NOT done: applying 003/004 to the live Supabase project, running these suites there, a browser walkthrough, AI or Search Console/Analytics integrations (not built), deployment. Tax flags and reports are owner notes and transaction summaries, not tax advice or reconciled accounting.
+
+## Search and analytics branch · October 8, 2026
+
+- npm test: 26 pass (rule thresholds, CSV parsing, de-duplication, RS256 sign-in token verified against the public key, request shapes, read-only scopes, 403 messages) using a fake Google.
+- NOT done: any call to the real Google APIs, a browser walkthrough of the new section. The route was only smoke-tested without credentials (reports not configured, rejects unauthenticated requests).

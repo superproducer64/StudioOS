@@ -13,6 +13,8 @@
     "lib/imports.ts",
     "lib/rules.ts",
     "lib/reports.ts",
-    "lib/marketing.ts"
+    "lib/marketing.ts",
+    "lib/insights.ts",
+    "lib/google.ts"
   ]
 }
