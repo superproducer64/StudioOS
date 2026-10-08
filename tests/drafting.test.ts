@@ -61,6 +61,12 @@ test("complete sends the key only in headers and maps errors without leaking it"
   assert.ok(!String(seen!.init.body).includes("SECRET"));
   const oa: typeof fetch = async () => Response.json({ choices: [{ message: { content: "hi" } }] });
   assert.equal(await complete({ provider: "openai", apiKey: "SECRET", model: "m" }, { system: "s", user: "u" }, oa), "hi");
+  const credit: typeof fetch = async () =>
+    Response.json({ error: { message: "Your credit balance is too low" } }, { status: 400 });
+  await assert.rejects(
+    () => complete({ provider: "anthropic", apiKey: "SECRET", model: "m" }, { system: "s", user: "u" }, credit),
+    /error \(400\)\. It said: Your credit balance is too low/,
+  );
   for (const [status, re] of [[401, /rejected the API key/], [429, /credit/], [500, /error \(500\)/]] as const) {
     const bad: typeof fetch = async () => new Response("SECRET leaked body", { status });
     await assert.rejects(

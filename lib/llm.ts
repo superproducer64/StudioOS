@@ -55,7 +55,18 @@ export async function complete(
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) throw new Error("The AI provider rejected the API key.");
     if (res.status === 429) throw new Error("The AI provider is rate limiting or out of credit. Check billing.");
-    throw new Error("The AI provider returned an error (" + res.status + ").");
+    // The provider's own message (for example "credit balance is too low" or "model not found")
+    // is safe to show: it describes the request, and never echoes the key.
+    let detail = "";
+    try {
+      const j = (await res.json()) as { error?: { message?: unknown } };
+      if (typeof j.error?.message === "string") detail = j.error.message.replace(config.apiKey, "").slice(0, 300);
+    } catch {
+      /* no readable body */
+    }
+    throw new Error(
+      "The AI provider returned an error (" + res.status + ")." + (detail ? " It said: " + detail : ""),
+    );
   }
   const data = (await res.json()) as {
     content?: { type: string; text?: string }[];
