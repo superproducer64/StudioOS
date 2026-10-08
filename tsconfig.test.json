@@ -8,5 +8,13 @@
     "skipLibCheck": true,
     "outDir": ".test-build"
   },
-  "include": ["tests/**/*.ts", "lib/imports.ts", "lib/rules.ts"]
+  "include": [
+    "tests/**/*.ts",
+    "lib/imports.ts",
+    "lib/rules.ts",
+    "lib/reports.ts",
+    "lib/marketing.ts",
+    "lib/insights.ts",
+    "lib/google.ts"
+  ]
 }

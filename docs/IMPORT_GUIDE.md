@@ -17,3 +17,7 @@ Export layouts change across products and accounts. The starter accepts all five
 5. Approve only after verifying values; the dashboard includes approved USD rows.
 
 The connected app stores rows in Supabase with owner-only RLS. Existing browser demo data is not loaded or migrated. Start with synthetic records until you complete account-specific browser acceptance testing. Use Import history to reverse or restore a batch without deleting its audit history.
+
+Saved mappings: after choosing columns, name the mapping and save it for the account. Loading it later fills in columns that exist in the new file and tells you which are missing. Saving under an existing name updates it.
+
+Business or personal: each non-transfer must be classified in Review before it can be approved. Rules suggest categories only; classification and tax flags are always your decision.
