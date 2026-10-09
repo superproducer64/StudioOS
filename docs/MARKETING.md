@@ -29,3 +29,5 @@ OpenAI instead: `LLM_PROVIDER=openai`, `OPENAI_API_KEY=...`, and set `LLM_MODEL`
 Cost control: set a monthly spend limit in the provider's console. The app also allows at most one request per 3 seconds and 30 per hour per user per server instance (best effort, not a billing cap).
 
 Not tested live: calls to the real AI provider (tests use a fake). Try one draft and read it before relying on it.
+
+The screen will not let you approve a draft that still contains a `[CONFIRM: ...]` placeholder, and AI drafting is not offered on the generic starter checklist tasks. This guard is in the app, not the database: it keeps you from approving by accident, but it is not a security boundary.
