@@ -47,19 +47,34 @@ export function money(value: string): number {
   return cents;
 }
 export function parseCsv(text: string) {
-  const result = Papa.parse<Record<string, string>>(
-    text.replace(/^\uFEFF/, ""),
-    {
-      header: true,
-      skipEmptyLines: "greedy",
-      transformHeader: (h) => h.trim(),
-    },
-  );
+  const result = Papa.parse<string[]>(text.replace(/^\uFEFF/, ""), {
+    header: false,
+    skipEmptyLines: "greedy",
+  });
   if (result.errors.length)
     throw new Error(result.errors.map((e) => e.message).join("; "));
-  if (!result.meta.fields?.length)
-    throw new Error("CSV must include a header row");
-  return { headers: result.meta.fields, rows: result.data };
+  const filled = (r: string[]) => r.filter((c) => c.trim() !== "").length;
+  const grid = result.data;
+  const widest = Math.max(0, ...grid.map(filled));
+  // Bank/app exports often start with note lines (e.g. Venmo). The header row
+  // is the first row that is nearly as wide as the widest row in the file.
+  const headerAt = grid.findIndex(
+    (r) => filled(r) >= 2 && filled(r) >= widest * 0.6,
+  );
+  if (headerAt < 0) throw new Error("CSV must include a header row");
+  const headers = grid[headerAt].map((h) => h.trim());
+  if (!headers.some(Boolean)) throw new Error("CSV must include a header row");
+  const rows = grid
+    .slice(headerAt + 1)
+    .filter((r) => filled(r) >= 2) // drops footer/disclaimer lines
+    .map((r) => {
+      const o: Record<string, string> = {};
+      headers.forEach((h, i) => {
+        if (h) o[h] = r[i] ?? "";
+      });
+      return o;
+    });
+  return { headers: headers.filter(Boolean), rows };
 }
 function dateISO(input: string) {
   const v = input.trim();

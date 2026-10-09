@@ -119,3 +119,11 @@ test("a blank description falls back to the chosen column instead of failing the
     /fallback column is blank too/,
   );
 });
+test("parseCsv skips note lines above the header and footer lines", () => {
+  const p = parseCsv(
+    'Account Statement - @someone\n"Account Activity"\n,ID,Datetime,Note,Amount (total)\n,1,2026-09-02T10:00:00,Coffee,- $5.00\n,2,2026-09-03T10:00:00,,+ $20.00\n"Disclaimer text"\n',
+  );
+  assert.deepEqual(p.headers, ["ID", "Datetime", "Note", "Amount (total)"]);
+  assert.equal(p.rows.length, 2);
+  assert.equal(p.rows[0].Note, "Coffee");
+});
