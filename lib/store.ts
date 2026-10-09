@@ -10,6 +10,19 @@ export type Account = {
   provider: string;
   account_type: string;
   currency: string;
+  opening_balance_cents: number;
+  opening_balance_on: string | null;
+};
+export type AccountBalance = {
+  account_id: string;
+  name: string;
+  currency: string;
+  opening_balance_cents: number;
+  opening_balance_on: string | null;
+  activity_cents: number;
+  balance_cents: number;
+  transaction_count: number;
+  unreviewed_count: number;
 };
 export type Batch = {
   id: string;
@@ -164,6 +177,8 @@ export const useSubscriptions = () =>
 export const useAssets = () => useRows<Asset>("assets");
 export const useTemplates = () =>
   useRows<ImportTemplate>("import_templates", "*", "name");
+export const useAccountBalances = () =>
+  useRows<AccountBalance>("account_balances", "*", "name", "account_id");
 export const useProjectPnl = () =>
   useRows<ProjectPnl>("project_pnl", "*", "name", "project_id");
 type DbTransaction = {
@@ -182,6 +197,7 @@ type DbTransaction = {
   classification: string;
   tax_deductible: boolean;
   project_id: string | null;
+  invoice_id: string | null;
   accounts: Account;
   import_batches: { source: Transaction["source"] };
 };
@@ -191,26 +207,30 @@ export function useLedger() {
     "*,accounts!transactions_account_id_owner_id_fkey(name),import_batches!transactions_import_account_fkey(source)",
     "occurred_on",
   );
-  const transactions: Transaction[] = data.rows
-    .filter((t) => !t.voided)
-    .map((t) => ({
-      id: t.id,
-      date: t.occurred_on,
-      description: t.description,
-      amountCents: t.amount_cents,
-      currency: t.currency,
-      category: t.category,
-      kind: t.kind,
-      matchedRule: t.matched_rule,
-      reviewed: t.review_status === "approved",
-      source: t.import_batches?.source || "Bank",
-      account: t.accounts?.name || t.account_id,
-      raw: t.raw,
-      classification: t.classification,
-      taxDeductible: t.tax_deductible,
-      projectId: t.project_id,
-    }));
-  return { ...data, transactions };
+  const toTransaction = (t: DbTransaction): Transaction => ({
+    id: t.id,
+    date: t.occurred_on,
+    description: t.description,
+    amountCents: t.amount_cents,
+    currency: t.currency,
+    category: t.category,
+    kind: t.kind,
+    matchedRule: t.matched_rule,
+    reviewed: t.review_status === "approved",
+    source: t.import_batches?.source || "Bank",
+    account: t.accounts?.name || t.account_id,
+    raw: t.raw,
+    classification: t.classification,
+    taxDeductible: t.tax_deductible,
+    projectId: t.project_id,
+    invoiceId: t.invoice_id,
+    voided: t.voided,
+  });
+  // Reversed imports are left out of the ledger, but a reversed deposit that was matched to an
+  // invoice must stay reachable so the match can be undone.
+  const transactions = data.rows.filter((t) => !t.voided).map(toTransaction);
+  const matchedDeposits = data.rows.filter((t) => t.invoice_id).map(toTransaction);
+  return { ...data, transactions, matchedDeposits };
 }
 export async function commitImport(
   accountId: string,

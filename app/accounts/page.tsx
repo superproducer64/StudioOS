@@ -1,9 +1,79 @@
 "use client";
 import { useState } from "react";
-import { useAccounts } from "@/lib/store";
+import { useAccountBalances, useAccounts, type Account, type AccountBalance } from "@/lib/store";
+import { parseSignedCents, usd } from "@/lib/reports";
 import { getSupabase } from "@/lib/supabase";
+function AccountCard({
+  a,
+  bal,
+  onChange,
+}: {
+  a: Account;
+  bal?: AccountBalance;
+  onChange: () => Promise<void>;
+}) {
+  const [opening, setOpening] = useState((a.opening_balance_cents / 100).toFixed(2));
+  const [on, setOn] = useState(a.opening_balance_on ?? "");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const cents = parseSignedCents(opening);
+    if (cents === null) return setMsg("Enter an amount like 2500.00, or -400.00 for a card balance you owe.");
+    if (cents !== 0 && !on) return setMsg("Pick the date that balance was true at the start of the day.");
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await getSupabase()
+        .from("accounts")
+        .update({ opening_balance_cents: cents, opening_balance_on: on || null })
+        .eq("id", a.id);
+      if (r.error) throw r.error;
+      await onChange();
+      setMsg("Saved.");
+    } catch (err) {
+      setMsg((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section>
+      <h2>{a.name}</h2>
+      <p>
+        {a.provider} · {a.account_type} · {a.currency}
+      </p>
+      {bal && (
+        <>
+          <div className="metric">{usd(bal.balance_cents, a.currency)}</div>
+          <small>
+            Calculated balance: opening balance plus {bal.transaction_count} imported transaction(s)
+            {bal.opening_balance_on ? " from " + bal.opening_balance_on : ""}.
+            {bal.unreviewed_count > 0 && " " + bal.unreviewed_count + " not reviewed yet."} This is worked out
+            from what you imported, not read from your bank, so compare it with your statement.
+          </small>
+        </>
+      )}
+      <form onSubmit={save}>
+        <div className="grid">
+          <label>
+            Opening balance ({a.currency})
+            <input value={opening} onChange={(e) => setOpening(e.target.value)} />
+          </label>
+          <label>
+            As of the start of
+            <input type="date" value={on} onChange={(e) => setOn(e.target.value)} />
+          </label>
+        </div>
+        <button disabled={busy}>Save opening balance</button>
+        {msg && <span role="status">{msg}</span>}
+      </form>
+    </section>
+  );
+}
 export default function Accounts() {
   const { accounts, error, refresh } = useAccounts();
+  const balances = useAccountBalances();
   const [name, setName] = useState("");
   const [provider, setProvider] = useState("Bank");
   const [type, setType] = useState("bank");
@@ -30,7 +100,7 @@ export default function Accounts() {
                 });
               if (result.error) throw result.error;
               setName("");
-              await refresh();
+              await Promise.all([refresh(), balances.refresh()]);
               setNotice("Account created.");
             } catch (e) {
               setNotice((e as Error).message);
@@ -83,13 +153,14 @@ export default function Accounts() {
         {notice && <p role="status">{notice}</p>}
         {error && <p className="error">{error}</p>}
       </section>
+      {balances.error && <p className="error">{balances.error}</p>}
       {accounts.map((a) => (
-        <section key={a.id}>
-          <h2>{a.name}</h2>
-          <p>
-            {a.provider} · {a.account_type} · {a.currency}
-          </p>
-        </section>
+        <AccountCard
+          key={a.id + a.opening_balance_cents + (a.opening_balance_on ?? "")}
+          a={a}
+          bal={balances.rows.find((b) => b.account_id === a.id)}
+          onChange={() => Promise.all([refresh(), balances.refresh()]).then(() => undefined)}
+        />
       ))}
     </>
   );

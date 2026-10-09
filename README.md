@@ -50,3 +50,5 @@ Rules are editable suggestions; all rows require review. Square Banking can refe
 https://nextjs.org/docs/app/getting-started/installation
 https://supabase.com/docs/guides/database/postgres/row-level-security
 https://supabase.com/docs/guides/database/functions
+
+- Finance polish (password reset, account balances, invoice payment matching): see `docs/FINANCE_POLISH.md`.
