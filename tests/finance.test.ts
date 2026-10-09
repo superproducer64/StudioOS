@@ -127,3 +127,20 @@ test("parseCsv skips note lines above the header and footer lines", () => {
   assert.equal(p.rows.length, 2);
   assert.equal(p.rows[0].Note, "Coffee");
 });
+test("normalize skips statement summary rows but still errors on real bad rows", () => {
+  const m = { date: "d", description: "n", amount: "a" };
+  const ok = normalize(
+    [
+      { d: "2026-09-02", n: "Coffee", a: "-5.00" },
+      { d: "", n: "", a: "$31.61" },
+    ],
+    m,
+    "Venmo",
+    "V",
+  );
+  assert.equal(ok.length, 1);
+  assert.throws(
+    () => normalize([{ d: "garbage", n: "Real", a: "1" }], m, "Venmo", "V"),
+    /Row 2/,
+  );
+});
