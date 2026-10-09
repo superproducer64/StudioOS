@@ -28,6 +28,8 @@ export type Mapping = {
   credit?: string;
   currency?: string;
   id?: string;
+  // Used when the Description column is blank on a row (Venmo leaves Note empty on transfers).
+  descriptionFallback?: string;
   positiveIsExpense?: boolean;
 };
 export function money(value: string): number {
@@ -86,8 +88,15 @@ export function normalize(
   return rows.map((raw, index): Transaction => {
     try {
       const date = dateISO(raw[mapping.date] || "");
-      const description = (raw[mapping.description] || "").trim();
-      if (!description) throw new Error("Missing description");
+      const description =
+        (raw[mapping.description] || "").trim() ||
+        (raw[mapping.descriptionFallback || ""] || "").trim();
+      if (!description)
+        throw new Error(
+          mapping.descriptionFallback
+            ? "Missing description (the fallback column is blank too)"
+            : "Missing description. Pick a fallback column, or fill in the blank cell",
+        );
       const amountCents = mapping.amount
         ? money(raw[mapping.amount] || "") *
           (mapping.positiveIsExpense ? -1 : 1)
