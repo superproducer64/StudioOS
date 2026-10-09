@@ -17,6 +17,7 @@
     "lib/insights.ts",
     "lib/google.ts",
     "lib/drafting.ts",
+    "lib/matching.ts",
     "lib/llm.ts"
   ]
 }

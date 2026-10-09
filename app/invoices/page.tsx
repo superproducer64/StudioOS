@@ -4,11 +4,14 @@ import {
   useClients,
   useInvoiceItems,
   useInvoices,
+  useLedger,
   useProjects,
   type Invoice,
   type InvoiceItem,
 } from "@/lib/store";
 import { getSupabase } from "@/lib/supabase";
+import { suggestDeposits } from "@/lib/matching";
+import type { Transaction } from "@/lib/imports";
 import {
   invoiceBalanceCents,
   invoiceDisplayStatus,
@@ -29,11 +32,15 @@ function InvoiceCard({
   inv,
   clientName,
   items,
+  deposits,
+  matchedDeposits,
   onChange,
 }: {
   inv: Invoice;
   clientName: string;
   items: InvoiceItem[];
+  deposits: Transaction[];
+  matchedDeposits: Transaction[];
   onChange: () => Promise<void>;
 }) {
   const [desc, setDesc] = useState("");
@@ -59,6 +66,8 @@ function InvoiceCard({
     }
   }
   const sb = () => getSupabase();
+  const suggestions = suggestDeposits(inv, deposits);
+  const matched = matchedDeposits.filter((t) => t.invoiceId === inv.id);
   function addItem(e: React.FormEvent) {
     e.preventDefault();
     const cents = parseCents(price);
@@ -166,6 +175,57 @@ function InvoiceCard({
           <button disabled={busy || !payment.trim()}>Record payment</button>
         </form>
       )}
+      {canPay && (
+        <div>
+          <strong>Possible bank deposits</strong>
+          {suggestions.length ? (
+            <ul>
+              {suggestions.map(({ deposit: d, exact }) => (
+                <li key={d.id}>
+                  {d.date} · {d.description} · {usd(d.amountCents, d.currency)}{" "}
+                  {exact && <span className="badge">Matches the balance</span>}
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void run(() => sb().rpc("match_invoice_payment", { p_invoice: inv.id, p_transaction: d.id }))
+                    }
+                  >
+                    This paid it
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>
+              <small>
+                No unmatched deposits that fit. Deposits must be income, in {inv.currency}, no larger than the
+                balance, and dated on or after the day the invoice was sent.
+              </small>
+            </p>
+          )}
+        </div>
+      )}
+      {matched.length > 0 && (
+        <div>
+          <strong>Matched deposits</strong>
+          <ul>
+            {matched.map((d) => (
+              <li key={d.id}>
+                {d.date} · {d.description} · {usd(d.amountCents, d.currency)}
+                {d.voided && <span className="badge warn">Import reversed</span>}
+                {inv.status !== "void" && (
+                  <button
+                    disabled={busy}
+                    onClick={() => void run(() => sb().rpc("unmatch_invoice_payment", { p_transaction: d.id }))}
+                  >
+                    Undo match
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {inv.status !== "void" && inv.status !== "paid" && (
         <button disabled={busy} onClick={() => void run(() => sb().from("invoices").update({ status: "void" }).eq("id", inv.id))}>
           Void invoice
@@ -180,6 +240,7 @@ export default function Invoices() {
   const items = useInvoiceItems();
   const clients = useClients();
   const projects = useProjects();
+  const ledger = useLedger();
   const [f, setF] = useState({ client: "", project: "", number: "", due: "" });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -217,16 +278,16 @@ export default function Invoices() {
     }
   }
   async function refreshAll() {
-    await Promise.all([invoices.refresh(), items.refresh()]);
+    await Promise.all([invoices.refresh(), items.refresh(), ledger.refresh()]);
   }
-  const errors = invoices.error || items.error || clients.error || projects.error || notice;
+  const errors = invoices.error || items.error || ledger.error || clients.error || projects.error || notice;
   return (
     <>
       <h1>Invoices</h1>
       <p>
         Totals come from the line items. Overdue is worked out from the due
-        date, not stored. Recording a payment here does not match it to a bank
-        transaction.
+        date, not stored. You can record a payment by hand, or match a deposit
+        from your imported bank transactions so it is not counted twice.
       </p>
       <div className="grid">
         <section>
@@ -283,6 +344,8 @@ export default function Invoices() {
           inv={inv}
           clientName={clients.rows.find((c) => c.id === inv.client_id)?.name ?? "Unknown client"}
           items={items.rows.filter((i) => i.invoice_id === inv.id)}
+          deposits={ledger.transactions}
+          matchedDeposits={ledger.matchedDeposits}
           onChange={refreshAll}
         />
       ))}
