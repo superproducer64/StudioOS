@@ -174,6 +174,7 @@ export default function ImportPage() {
             <div className="grid">
               {field("date", "Date (ISO or US)")}
               {field("description", "Description")}
+              {field("descriptionFallback", "If Description is blank, use (optional)")}
               {field("amount", "Signed amount")}
               {field("debit", "Debit (if no amount)")}
               {field("credit", "Credit (if no amount)")}

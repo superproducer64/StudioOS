@@ -21,3 +21,7 @@ The connected app stores rows in Supabase with owner-only RLS. Existing browser 
 Saved mappings: after choosing columns, name the mapping and save it for the account. Loading it later fills in columns that exist in the new file and tells you which are missing. Saving under an existing name updates it.
 
 Business or personal: each non-transfer must be classified in Review before it can be approved. Rules suggest categories only; classification and tax flags are always your decision.
+
+Blank descriptions: some exports leave the description empty on certain rows (Venmo leaves Note blank on bank transfers). Pick a column under "If Description is blank, use" (for Venmo, Type) and those rows import with that value instead of failing. Rows blank in both columns still stop the import and name the row.
+
+Venmo statements: delete the notes lines above the real header row so the header (the line starting `,ID,Datetime,Type,...`) is line 1, and delete the beginning- and ending-balance summary rows, which are not transactions.

@@ -96,3 +96,26 @@ test("dashboard expenses are reduced by refunds and exclude transfers and foreig
     0,
   );
 });
+test("a blank description falls back to the chosen column instead of failing the import", () => {
+  // Synthetic Venmo-style export: a leading blank header cell, quoted amounts with commas,
+  // and a bank transfer whose Note is empty.
+  const csv = [
+    ",ID,Datetime,Type,Status,Note,From,To,Amount (total),Funding Source,",
+    ',1001,2026-04-02T10:15:00,Payment,Complete,Synthetic lunch,Test Person,Other Person,- $25.00,Venmo balance,',
+    ',1002,2026-04-03T09:00:00,Standard Transfer,Issued,,,,"- $2,000.00",Venmo balance,',
+    ',1003,2026-04-04T18:30:00,Payment,Complete,Synthetic invoice,Client,Test Person,"+ $1,250.50",,',
+  ].join("\n");
+  const p = parseCsv(csv);
+  assert.ok(p.headers.includes("Amount (total)") && p.headers.includes("Note"));
+  const base = { date: "Datetime", description: "Note", amount: "Amount (total)", id: "ID" };
+  assert.throws(() => normalize(p.rows, base, "Venmo", "V"), /Row 3: Missing description/);
+  const t = normalize(p.rows, { ...base, descriptionFallback: "Type" }, "Venmo", "V");
+  assert.deepEqual(t.map((x) => x.description), ["Synthetic lunch", "Standard Transfer", "Synthetic invoice"]);
+  assert.deepEqual(t.map((x) => x.amountCents), [-2500, -200000, 125050]);
+  assert.equal(t[0].date, "2026-04-02");
+  // A row blank in both columns still fails, and says so.
+  assert.throws(
+    () => normalize([{ ...p.rows[1], Type: "" }], { ...base, descriptionFallback: "Type" }, "Venmo", "V"),
+    /fallback column is blank too/,
+  );
+});
