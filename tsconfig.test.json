@@ -15,6 +15,8 @@
     "lib/reports.ts",
     "lib/marketing.ts",
     "lib/insights.ts",
-    "lib/google.ts"
+    "lib/google.ts",
+    "lib/drafting.ts",
+    "lib/llm.ts"
   ]
 }

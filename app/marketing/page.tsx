@@ -107,12 +107,55 @@ function Actions({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [aiOn, setAiOn] = useState(false);
+  const [aiChannel, setAiChannel] = useState<Channel>("website");
+  const [aiNotice, setAiNotice] = useState("");
+  useEffect(() => {
+    fetch("/api/marketing/draft")
+      .then((r) => r.json())
+      .then((j: { configured?: boolean }) => setAiOn(!!j.configured))
+      .catch(() => setAiOn(false));
+  }, []);
   async function run(fn: () => PromiseLike<{ error: { message: string } | null }>) {
     setBusy(true);
     setError("");
     try {
       const r = await fn();
       if (r.error) throw new Error(r.error.message);
+      await onChange();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function draftWithAi(a: MarketingAction) {
+    setBusy(true);
+    setError("");
+    setAiNotice("");
+    try {
+      const session = (await getSupabase().auth.getSession()).data.session;
+      const res = await fetch("/api/marketing/draft", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer " + (session?.access_token ?? "") },
+        body: JSON.stringify({ profileId: profile.id, actionId: a.id, channel: aiChannel }),
+      });
+      const j = (await res.json()) as { error?: string; title?: string; body?: string; confirm?: string[] };
+      if (!res.ok || !j.title || !j.body) throw new Error(j.error || "Drafting failed.");
+      const saved = await getSupabase()
+        .from("marketing_drafts")
+        .insert({
+          brand_profile_id: profile.id,
+          title: j.title,
+          body: j.body,
+          channel: aiChannel,
+          ai_generated: true,
+        });
+      if (saved.error) throw saved.error;
+      setAiNotice(
+        "Draft saved below as an unapproved draft." +
+          (j.confirm?.length ? " " + j.confirm.length + " [CONFIRM] gap(s) to fill in before approving." : ""),
+      );
       await onChange();
     } catch (e) {
       setError((e as Error).message);
@@ -165,13 +208,39 @@ function Actions({
             </button>
           ) : (
             a.status === "open" && (
-              <button disabled={busy} onClick={() => void setStatus(a.id, "dismissed")}>
-                Dismiss
-              </button>
+              <>
+                {aiOn && (
+                  <button disabled={busy} onClick={() => void draftWithAi(a)}>
+                    Draft with AI
+                  </button>
+                )}
+                <button disabled={busy} onClick={() => void setStatus(a.id, "dismissed")}>
+                  Dismiss
+                </button>
+              </>
             )
           )}
         </div>
       ))}
+      {aiOn && (
+        <p>
+          <label>
+            AI drafts are written for
+            <select value={aiChannel} onChange={(e) => setAiChannel(e.target.value as Channel)}>
+              {channels.map((c) => (
+                <option key={c} value={c}>
+                  {channelLabels[c]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <small>
+            The AI sees your brand profile and the task, writes a first draft, and fills gaps with
+            [CONFIRM: ...] instead of inventing facts. It is saved unapproved; nothing is posted.
+          </small>
+        </p>
+      )}
+      {aiNotice && <p>{aiNotice}</p>}
       {!actions.length && <p>No tasks yet.</p>}
       <form
         onSubmit={(e) => {
