@@ -100,12 +100,16 @@ export function normalize(
   account: string,
 ) {
   if (!account.trim()) throw new Error("Account name is required");
-  return rows.map((raw, index): Transaction => {
+  const out: Transaction[] = [];
+  rows.forEach((raw, index) => {
     try {
-      const date = dateISO(raw[mapping.date] || "");
       const description =
         (raw[mapping.description] || "").trim() ||
         (raw[mapping.descriptionFallback || ""] || "").trim();
+      // Statement summary rows (totals, balances, legal footers) have no
+      // description and no usable date. Skip those; real rows still error.
+      if (!description && !looksLikeDate(raw[mapping.date] || "")) return;
+      const date = dateISO(raw[mapping.date] || "");
       if (!description)
         throw new Error(
           mapping.descriptionFallback
@@ -129,7 +133,7 @@ export function normalize(
         account.trim(),
         external || [date, description, amountCents, currency],
       ]);
-      return {
+      out.push({
         id,
         date,
         description,
@@ -140,9 +144,13 @@ export function normalize(
         source,
         account: account.trim(),
         raw,
-      };
+      });
     } catch (error) {
       throw new Error("Row " + (index + 2) + ": " + (error as Error).message);
     }
   });
+  return out;
+}
+function looksLikeDate(input: string) {
+  return /^\s*(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})/.test(input);
 }
