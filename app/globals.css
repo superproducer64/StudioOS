@@ -165,3 +165,8 @@ textarea {
   flex-wrap: wrap;
   align-items: center;
 }
+
+/* Review: keep the tax flag under the select without making the cell taller, so every
+   drop-down in the row lines up. */
+td:has(> label.tax-flag) { position: relative; }
+label.tax-flag { margin: 0; position: absolute; left: 8px; top: calc(50% + 22px); white-space: nowrap; }
