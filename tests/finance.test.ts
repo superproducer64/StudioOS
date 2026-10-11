@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { money, parseCsv, normalize } from "../lib/imports";
-import { categorize } from "../lib/rules";
+import { categorize, suggestPattern, titleCase } from "../lib/rules";
 test("currency parsing uses integer cents and rejects malformed values", () => {
   assert.equal(money("($1,234.50)"), -123450);
   assert.equal(money("0.29"), 29);
@@ -155,4 +155,10 @@ test("income rules apply only to money coming in", () => {
     matchedRule: "Acme",
   });
   assert.equal(categorize("ACME wire", -2500, rules).category, "Equipment & rentals");
+});
+test("rule pattern suggestions drop numbers and card suffixes", () => {
+  assert.equal(suggestPattern("Capital One ••••787"), "capital one");
+  assert.equal(suggestPattern("SQ *JOES COFFEE 1234 HOUSTON TX"), "sq joes coffee");
+  assert.equal(suggestPattern("ACH 2022-12-12 0000123"), "ach");
+  assert.equal(titleCase("capital one"), "Capital One");
 });

@@ -33,3 +33,16 @@ one. You can still type a new category; add it to the list afterwards if you wan
   each one's most common type.
 - **Paste a list** adds many at once, one per line: `Name` or `Name, income|expense|transfer`.
   Lines without a type use the "Default type" menu. Repeats and names you already have are skipped.
+
+**Make a rule from Review**
+
+Pick a category on a row, then click **Make a rule**. The panel suggests "description contains"
+text from that row's description (first few plain words, no numbers); edit it to something short
+and specific. Save, and:
+
+- the rule applies to future imports, and
+- optionally, every *pending* row that matches (and is still Uncategorized) gets the category,
+  saved as **pending**. Nothing is approved for you, and approved rows are never changed.
+
+If you already have a rule for the same text you get a message pointing you to the Rules page.
+Income rules only match money coming in.
