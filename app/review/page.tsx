@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Transaction } from "@/lib/imports";
 import {
   reviewTransaction,
@@ -11,18 +11,28 @@ import {
   type Project,
 } from "@/lib/store";
 import { classifications } from "@/lib/reports";
+import { categorize, suggestPattern, titleCase, type Rule } from "@/lib/rules";
+import { getSupabase } from "@/lib/supabase";
 import { CategoryPicker } from "@/components/CategoryPicker";
 function ReviewRow({
   t,
   projects,
   categories,
+  pending,
   onSave,
+  onNotice,
 }: {
   t: Transaction;
   projects: Project[];
   categories: Category[];
+  pending: Transaction[];
   onSave: () => Promise<void>;
+  onNotice: (message: string) => void;
 }) {
+  const [ruleOpen, setRuleOpen] = useState(false);
+  const [rulePattern, setRulePattern] = useState("");
+  const [ruleVendor, setRuleVendor] = useState("");
+  const [applyPending, setApplyPending] = useState(true);
   const [category, setCategory] = useState(t.category);
   const [kind, setKind] = useState(t.kind);
   const [classification, setClassification] = useState(
@@ -38,6 +48,80 @@ function ReviewRow({
     kind === "expense" &&
     (classification === "business" || classification === "mixed");
   const needsClass = kind !== "transfer" && classification === "unclassified";
+  const readyForRule = !!category.trim() && category !== "Uncategorized";
+  const draftRule: Rule = {
+    vendor: ruleVendor.trim() || titleCase(rulePattern.trim()),
+    pattern: rulePattern.trim().toLowerCase(),
+    category: category.trim(),
+    kind: kind as Rule["kind"],
+    priority: 70,
+  };
+  // Pending rows this rule would label: still Uncategorized (or this row), matched by the same
+  // logic imports use. Approved rows are never touched.
+  const ruleMatches = useMemo(
+    () =>
+      ruleOpen && draftRule.pattern
+        ? pending.filter(
+            (o) =>
+              (o.id === t.id || o.category === "Uncategorized") &&
+              categorize(o.description, o.amountCents, [draftRule]).matchedRule,
+          )
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ruleOpen, rulePattern, kind, pending, t.id],
+  );
+  async function makeRule() {
+    setBusy(true);
+    setError("");
+    try {
+      if (!draftRule.pattern)
+        throw new Error("Type the text to look for in the description.");
+      const r = await getSupabase().from("category_rules").insert(draftRule);
+      if (r.error)
+        throw new Error(
+          r.error.message.includes("duplicate key")
+            ? "You already have a rule for that text. Edit it on the Rules page."
+            : r.error.message,
+        );
+      let applied = 0;
+      let failed = 0;
+      if (applyPending)
+        for (const o of ruleMatches) {
+          try {
+            await reviewTransaction(
+              o.id,
+              draftRule.category,
+              draftRule.kind,
+              false,
+            );
+            applied++;
+          } catch {
+            failed++;
+          }
+        }
+      setRuleOpen(false);
+      onNotice(
+        'Rule saved: descriptions containing "' +
+          draftRule.pattern +
+          '" → ' +
+          draftRule.category +
+          ". " +
+          (applyPending
+            ? "Set the category on " +
+              applied +
+              " pending row" +
+              (applied === 1 ? "" : "s") +
+              (failed ? " (" + failed + " could not be updated)" : "") +
+              " as pending. Nothing was approved."
+            : "It applies to future imports."),
+      );
+      await onSave();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function save(approved: boolean) {
     setBusy(true);
     setError("");
@@ -60,102 +144,169 @@ function ReviewRow({
     }
   }
   return (
-    <tr>
-      <td>
-        {t.date}
-        <br />
-        {t.description}
-        <br />
-        <small>
-          {t.account} · {t.matchedRule || "No matching rule"}
-        </small>
-      </td>
-      <td>
-        {(t.amountCents / 100).toFixed(2)} {t.currency}
-      </td>
-      <td>
-        <CategoryPicker
-          allowNew
-          disabled={busy}
-          value={category}
-          categories={categories}
-          onChange={(name, k) => {
-            setCategory(name);
-            // Picking from your list also sets its kind (income / expense / transfer).
-            if (k) setKind(k);
-          }}
-        />
-      </td>
-      <td>
-        <select
-          aria-label="Kind"
-          disabled={busy}
-          value={kind}
-          onChange={(e) => setKind(e.target.value)}
-        >
-          {["income", "expense", "transfer"].map((k) => (
-            <option key={k}>{k}</option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <select
-          aria-label="Business or personal"
-          disabled={busy}
-          value={classification}
-          onChange={(e) => setClassification(e.target.value)}
-        >
-          {classifications.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-        <label>
-          <input
-            type="checkbox"
-            disabled={busy || !taxAllowed}
-            checked={taxAllowed && tax}
-            onChange={(e) => setTax(e.target.checked)}
+    <>
+      <tr>
+        <td>
+          {t.date}
+          <br />
+          {t.description}
+          <br />
+          <small>
+            {t.account} · {t.matchedRule || "No matching rule"}
+          </small>
+        </td>
+        <td>
+          {(t.amountCents / 100).toFixed(2)} {t.currency}
+        </td>
+        <td>
+          <CategoryPicker
+            allowNew
+            disabled={busy}
+            value={category}
+            categories={categories}
+            onChange={(name, k) => {
+              setCategory(name);
+              // Picking from your list also sets its kind (income / expense / transfer).
+              if (k) setKind(k);
+            }}
           />
-          Flag for tax review
-        </label>
-      </td>
-      <td>
-        <select
-          aria-label="Project"
-          disabled={busy}
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-        >
-          <option value="">No project</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <button
-          disabled={
-            busy || !category.trim() || category === "Uncategorized" || needsClass
-          }
-          onClick={() => void save(true)}
-        >
-          Save & approve
-        </button>
-        <button
-          disabled={busy || !category.trim()}
-          onClick={() => void save(false)}
-        >
-          Save as pending
-        </button>
-        <small>{t.reviewed ? "Approved" : "Pending"}</small>
-        {needsClass && (
-          <small> · Choose business, personal or mixed to approve</small>
-        )}
-        {error && <p className="error">{error}</p>}
-      </td>
-    </tr>
+        </td>
+        <td>
+          <select
+            aria-label="Kind"
+            disabled={busy}
+            value={kind}
+            onChange={(e) => setKind(e.target.value)}
+          >
+            {["income", "expense", "transfer"].map((k) => (
+              <option key={k}>{k}</option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <select
+            aria-label="Business or personal"
+            disabled={busy}
+            value={classification}
+            onChange={(e) => setClassification(e.target.value)}
+          >
+            {classifications.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          <label>
+            <input
+              type="checkbox"
+              disabled={busy || !taxAllowed}
+              checked={taxAllowed && tax}
+              onChange={(e) => setTax(e.target.checked)}
+            />
+            Flag for tax review
+          </label>
+        </td>
+        <td>
+          <select
+            aria-label="Project"
+            disabled={busy}
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+          >
+            <option value="">No project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td>
+          <button
+            disabled={
+              busy ||
+              !category.trim() ||
+              category === "Uncategorized" ||
+              needsClass
+            }
+            onClick={() => void save(true)}
+          >
+            Save & approve
+          </button>
+          <button
+            disabled={busy || !category.trim()}
+            onClick={() => void save(false)}
+          >
+            Save as pending
+          </button>
+          <button
+            disabled={busy || !readyForRule}
+            title={readyForRule ? "" : "Pick a category first"}
+            onClick={() => {
+              const p = suggestPattern(t.description);
+              setRulePattern(p);
+              setRuleVendor(titleCase(p));
+              setRuleOpen((o) => !o);
+            }}
+          >
+            Make a rule
+          </button>
+          <small>{t.reviewed ? "Approved" : "Pending"}</small>
+          {needsClass && (
+            <small> · Choose business, personal or mixed to approve</small>
+          )}
+          {error && <p className="error">{error}</p>}
+        </td>
+      </tr>
+      {ruleOpen && (
+        <tr>
+          <td colSpan={7}>
+            <div className="card">
+              <strong>New rule</strong>: when a description contains this text,
+              suggest <strong>{category}</strong> ({kind}).
+              <label>
+                Description contains
+                <input
+                  value={rulePattern}
+                  onChange={(e) => setRulePattern(e.target.value)}
+                />
+              </label>
+              <label>
+                Name
+                <input
+                  value={ruleVendor}
+                  onChange={(e) => setRuleVendor(e.target.value)}
+                />
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={applyPending}
+                  onChange={(e) => setApplyPending(e.target.checked)}
+                />
+                Also set this category on the {ruleMatches.length} pending row
+                {ruleMatches.length === 1 ? "" : "s"} that match (saved as
+                pending, nothing approved)
+              </label>
+              <small>
+                Matching is "contains", ignoring capitals. Use short, specific
+                text so it does not catch other vendors. Approved rows are never
+                changed.
+              </small>
+              <div>
+                <button
+                  disabled={busy || !rulePattern.trim()}
+                  onClick={() => void makeRule()}
+                >
+                  Save rule
+                </button>
+                <button disabled={busy} onClick={() => setRuleOpen(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 export default function Review() {
@@ -163,6 +314,8 @@ export default function Review() {
   const { rows: projects, error: projectError } = useProjects();
   const { categories } = useCategories();
   const [show, setShow] = useState<"pending" | "all">("pending");
+  const [notice, setNotice] = useState("");
+  const pending = transactions.filter((t) => !t.reviewed);
   const visible = transactions.filter((t) => show === "all" || !t.reviewed);
   return (
     <>
@@ -186,6 +339,7 @@ export default function Review() {
       {(error || projectError) && (
         <p className="error">{error || projectError}</p>
       )}
+      {notice && <p role="status">{notice}</p>}
       <div className="scroll">
         <table>
           <thead>
@@ -214,7 +368,9 @@ export default function Review() {
                 t={t}
                 projects={projects}
                 categories={categories}
+                pending={pending}
                 onSave={refresh}
+                onNotice={setNotice}
               />
             ))}
           </tbody>

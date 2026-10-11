@@ -66,3 +66,17 @@ export function categorize(
     };
   return { category: rule.category, kind: rule.kind, matchedRule: rule.vendor };
 }
+/** A starting "description contains" text for a new rule: the first few plain words, no numbers or card suffixes. */
+export function suggestPattern(description: string) {
+  return description
+    .toLowerCase()
+    .replace(/[•*#]+\s*\d+/g, " ")
+    .replace(/\b\d[\d/\-.:]*\b/g, " ")
+    .replace(/[^a-z&' ]+/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 1)
+    .slice(0, 3)
+    .join(" ");
+}
+export const titleCase = (s: string) =>
+  s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
