@@ -1,7 +1,124 @@
 "use client";
 import { useState } from "react";
-import { useClients } from "@/lib/store";
+import { blockingItems, useClients, type Client } from "@/lib/store";
 import { getSupabase } from "@/lib/supabase";
+function ClientRow({ c, onChange }: { c: Client; onChange: () => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [name, setName] = useState(c.name);
+  const [email, setEmail] = useState(c.email ?? "");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  async function save() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const r = await getSupabase()
+        .from("clients")
+        .update({ name: name.trim(), email: email.trim() || null })
+        .eq("id", c.id);
+      if (r.error) throw r.error;
+      setEditing(false);
+      await onChange();
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function askDelete() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const blocked = await blockingItems(c.id, [
+        ["project(s)", "projects", "client_id"],
+        ["invoice(s)", "invoices", "client_id"],
+        ["marketing brand profile(s)", "brand_profiles", "client_id"],
+      ]);
+      if (blocked.length)
+        setMessage(
+          "Can't delete yet: " + blocked.join(", ") +
+            " still use this client. Move or remove those first, or just fix the name with Edit.",
+        );
+      else setConfirming(true);
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove() {
+    setBusy(true);
+    try {
+      const r = await getSupabase().from("clients").delete().eq("id", c.id);
+      if (r.error) throw r.error;
+      await onChange();
+    } catch (e) {
+      setMessage((e as Error).message);
+      setConfirming(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <tr>
+      <td>
+        {editing ? (
+          <input aria-label="Client name" value={name} onChange={(e) => setName(e.target.value)} />
+        ) : (
+          c.name
+        )}
+      </td>
+      <td>
+        {editing ? (
+          <input aria-label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        ) : (
+          c.email || "—"
+        )}
+      </td>
+      <td>
+        {editing ? (
+          <>
+            <button disabled={busy || !name.trim()} onClick={() => void save()}>
+              Save
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => {
+                setEditing(false);
+                setName(c.name);
+                setEmail(c.email ?? "");
+                setMessage("");
+              }}
+            >
+              Cancel
+            </button>
+          </>
+        ) : confirming ? (
+          <>
+            <small>Delete {c.name}? This can't be undone.</small>
+            <button disabled={busy} onClick={() => void remove()}>
+              Yes, delete
+            </button>
+            <button disabled={busy} onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <button disabled={busy} onClick={() => setEditing(true)}>
+              Edit
+            </button>
+            <button disabled={busy} onClick={() => void askDelete()}>
+              Delete
+            </button>
+          </>
+        )}
+        {message && <p className="error">{message}</p>}
+      </td>
+    </tr>
+  );
+}
 export default function Clients() {
   const { rows, ready, error, refresh } = useClients();
   const [name, setName] = useState("");
@@ -49,14 +166,12 @@ export default function Clients() {
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {rows.map((c) => (
-              <tr key={c.id}>
-                <td>{c.name}</td>
-                <td>{c.email || "—"}</td>
-              </tr>
+              <ClientRow key={c.id + c.name + (c.email ?? "")} c={c} onChange={refresh} />
             ))}
           </tbody>
         </table>

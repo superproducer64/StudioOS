@@ -272,3 +272,22 @@ export async function tagTransaction(id: string, projectId: string | null) {
   });
   if (error) throw error;
 }
+/**
+ * Counts rows that still point at a client or project, so Delete can explain what is in the way
+ * instead of failing with a database error. Each check is [what it is called, table, column].
+ */
+export async function blockingItems(
+  id: string,
+  checks: [string, string, string][],
+): Promise<string[]> {
+  const found: string[] = [];
+  for (const [label, table, column] of checks) {
+    const r = await getSupabase()
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .eq(column, id);
+    if (r.error) throw r.error;
+    if (r.count) found.push(r.count + " " + label);
+  }
+  return found;
+}
