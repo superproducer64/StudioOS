@@ -144,3 +144,15 @@ test("normalize skips statement summary rows but still errors on real bad rows",
     /Row 2/,
   );
 });
+test("income rules apply only to money coming in", () => {
+  const rules = [
+    { vendor: "Acme", pattern: "acme", category: "Client payments", kind: "income" as const, priority: 80 },
+    { vendor: "Acme supplies", pattern: "acme", category: "Equipment & rentals", kind: "expense" as const, priority: 10 },
+  ];
+  assert.deepEqual(categorize("ACME wire", 500000, rules), {
+    category: "Client payments",
+    kind: "income",
+    matchedRule: "Acme",
+  });
+  assert.equal(categorize("ACME wire", -2500, rules).category, "Equipment & rentals");
+});

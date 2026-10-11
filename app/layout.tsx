@@ -17,6 +17,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ["/accounts", "Accounts"],
               ["/import", "Import"],
               ["/review", "Review"],
+              ["/categories", "Categories"],
               ["/rules", "Rules"],
               ["/history", "Imports"],
               ["/reports", "Reports"],

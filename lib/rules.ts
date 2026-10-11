@@ -2,7 +2,7 @@ export type Rule = {
   vendor: string;
   pattern: string;
   category: string;
-  kind: "expense" | "transfer";
+  kind: "income" | "expense" | "transfer";
   priority: number;
 };
 export const defaultRules: Rule[] = [
@@ -51,7 +51,13 @@ export function categorize(
   const text = description.toLowerCase();
   const rule = [...rules]
     .sort((a, b) => b.priority - a.priority)
-    .find((r) => text.includes(r.pattern.toLowerCase()));
+    .find(
+      (r) =>
+        text.includes(r.pattern.toLowerCase()) &&
+        // Income rules only apply to money coming in. A payment going out that happens to
+        // match stays with the other rules (refunds on expense rules stay expenses).
+        (r.kind !== "income" || amountCents > 0),
+    );
   if (!rule)
     return {
       category: "Uncategorized",
