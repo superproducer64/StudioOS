@@ -11,6 +11,7 @@ import {
   type Project,
 } from "@/lib/store";
 import { classifications } from "@/lib/reports";
+import { CategoryPicker } from "@/components/CategoryPicker";
 function ReviewRow({
   t,
   projects,
@@ -73,18 +74,15 @@ function ReviewRow({
         {(t.amountCents / 100).toFixed(2)} {t.currency}
       </td>
       <td>
-        <input
-          aria-label="Category"
+        <CategoryPicker
+          allowNew
           disabled={busy}
-          list="category-list"
           value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
-            // Picking a category from your list also sets its kind (income / expense / transfer).
-            const match = categories.find(
-              (c) => c.name.toLowerCase() === e.target.value.trim().toLowerCase(),
-            );
-            if (match) setKind(match.kind);
+          categories={categories}
+          onChange={(name, k) => {
+            setCategory(name);
+            // Picking from your list also sets its kind (income / expense / transfer).
+            if (k) setKind(k);
           }}
         />
       </td>
@@ -188,13 +186,6 @@ export default function Review() {
       {(error || projectError) && (
         <p className="error">{error || projectError}</p>
       )}
-      <datalist id="category-list">
-        {categories.map((c) => (
-          <option key={c.id} value={c.name}>
-            {c.kind}
-          </option>
-        ))}
-      </datalist>
       <div className="scroll">
         <table>
           <thead>

@@ -2,39 +2,7 @@
 import { useState } from "react";
 import { useCategories, useRules, type Category, type SavedRule } from "@/lib/store";
 import { getSupabase } from "@/lib/supabase";
-function CategoryPicker({
-  value,
-  categories,
-  onChange,
-}: {
-  value: string;
-  categories: Category[];
-  onChange: (name: string, kind?: Category["kind"]) => void;
-}) {
-  const known = categories.some((c) => c.name === value);
-  return (
-    <select
-      value={value}
-      onChange={(e) =>
-        onChange(e.target.value, categories.find((c) => c.name === e.target.value)?.kind)
-      }
-    >
-      <option value="">Choose a category…</option>
-      {value && !known && <option value={value}>{value} (not in your list)</option>}
-      {(["income", "expense", "transfer"] as const).map((k) => (
-        <optgroup key={k} label={k}>
-          {categories
-            .filter((c) => c.kind === k)
-            .map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-        </optgroup>
-      ))}
-    </select>
-  );
-}
+import { CategoryPicker } from "@/components/CategoryPicker";
 function RuleRow({
   rule,
   categories,
