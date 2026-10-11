@@ -20,6 +20,12 @@ export type Batch = {
   created_at: string;
 };
 export type SavedRule = Rule & { id: string; enabled: boolean };
+export type Category = {
+  id: string;
+  name: string;
+  kind: "income" | "expense" | "transfer";
+  created_at: string;
+};
 export type Client = {
   id: string;
   name: string;
@@ -154,6 +160,10 @@ export function useAccounts() {
 export function useRules() {
   const data = useRows<SavedRule>("category_rules");
   return { ...data, rules: data.rows };
+}
+export function useCategories() {
+  const data = useRows<Category>("categories", "*", "name");
+  return { ...data, categories: data.rows };
 }
 export const useClients = () => useRows<Client>("clients", "*", "name");
 export const useProjects = () => useRows<Project>("projects", "*", "name");

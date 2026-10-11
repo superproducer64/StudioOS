@@ -4,18 +4,22 @@ import type { Transaction } from "@/lib/imports";
 import {
   reviewTransaction,
   tagTransaction,
+  useCategories,
   useLedger,
   useProjects,
+  type Category,
   type Project,
 } from "@/lib/store";
 import { classifications } from "@/lib/reports";
 function ReviewRow({
   t,
   projects,
+  categories,
   onSave,
 }: {
   t: Transaction;
   projects: Project[];
+  categories: Category[];
   onSave: () => Promise<void>;
 }) {
   const [category, setCategory] = useState(t.category);
@@ -72,8 +76,16 @@ function ReviewRow({
         <input
           aria-label="Category"
           disabled={busy}
+          list="category-list"
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            // Picking a category from your list also sets its kind (income / expense / transfer).
+            const match = categories.find(
+              (c) => c.name.toLowerCase() === e.target.value.trim().toLowerCase(),
+            );
+            if (match) setKind(match.kind);
+          }}
         />
       </td>
       <td>
@@ -151,6 +163,7 @@ function ReviewRow({
 export default function Review() {
   const { transactions, ready, error, refresh } = useLedger();
   const { rows: projects, error: projectError } = useProjects();
+  const { categories } = useCategories();
   const [show, setShow] = useState<"pending" | "all">("pending");
   const visible = transactions.filter((t) => show === "all" || !t.reviewed);
   return (
@@ -175,6 +188,13 @@ export default function Review() {
       {(error || projectError) && (
         <p className="error">{error || projectError}</p>
       )}
+      <datalist id="category-list">
+        {categories.map((c) => (
+          <option key={c.id} value={c.name}>
+            {c.kind}
+          </option>
+        ))}
+      </datalist>
       <div className="scroll">
         <table>
           <thead>
@@ -202,6 +222,7 @@ export default function Review() {
                 ].join(":")}
                 t={t}
                 projects={projects}
+                categories={categories}
                 onSave={refresh}
               />
             ))}

@@ -1,12 +1,47 @@
 "use client";
 import { useState } from "react";
-import { useRules, type SavedRule } from "@/lib/store";
+import { useCategories, useRules, type Category, type SavedRule } from "@/lib/store";
 import { getSupabase } from "@/lib/supabase";
+function CategoryPicker({
+  value,
+  categories,
+  onChange,
+}: {
+  value: string;
+  categories: Category[];
+  onChange: (name: string, kind?: Category["kind"]) => void;
+}) {
+  const known = categories.some((c) => c.name === value);
+  return (
+    <select
+      value={value}
+      onChange={(e) =>
+        onChange(e.target.value, categories.find((c) => c.name === e.target.value)?.kind)
+      }
+    >
+      <option value="">Choose a category…</option>
+      {value && !known && <option value={value}>{value} (not in your list)</option>}
+      {(["income", "expense", "transfer"] as const).map((k) => (
+        <optgroup key={k} label={k}>
+          {categories
+            .filter((c) => c.kind === k)
+            .map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
 function RuleRow({
   rule,
+  categories,
   onSave,
 }: {
   rule: SavedRule;
+  categories: Category[];
   onSave: () => Promise<void>;
 }) {
   const [pattern, setPattern] = useState(rule.pattern);
@@ -24,7 +59,14 @@ function RuleRow({
       </label>
       <label>
         Category
-        <input value={category} onChange={(e) => setCategory(e.target.value)} />
+        <CategoryPicker
+          value={category}
+          categories={categories}
+          onChange={(name, k) => {
+            setCategory(name);
+            if (k) setKind(k);
+          }}
+        />
       </label>
       <label>
         Kind
@@ -32,6 +74,7 @@ function RuleRow({
           value={kind}
           onChange={(e) => setKind(e.target.value as SavedRule["kind"])}
         >
+          <option value="income">Income (money coming in only)</option>
           <option value="expense">Expense (refunds stay expenses)</option>
           <option value="transfer">Transfer</option>
         </select>
@@ -76,6 +119,8 @@ function RuleRow({
 }
 export default function Rules() {
   const { rules, error, refresh } = useRules();
+  const { categories } = useCategories();
+  const [kind, setKind] = useState<SavedRule["kind"]>("expense");
   const [notice, setNotice] = useState("");
   const [vendor, setVendor] = useState("");
   const [pattern, setPattern] = useState("");
@@ -109,7 +154,7 @@ export default function Rules() {
         Add missing default rules
       </button>
       <section>
-        <h2>New expense rule</h2>
+        <h2>New rule</h2>
         <label>
           Vendor
           <input value={vendor} onChange={(e) => setVendor(e.target.value)} />
@@ -120,10 +165,30 @@ export default function Rules() {
         </label>
         <label>
           Category
-          <input
+          <CategoryPicker
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            categories={categories}
+            onChange={(name, k) => {
+              setCategory(name);
+              if (k) setKind(k);
+            }}
           />
+        </label>
+        {!categories.length && (
+          <p>
+            Add your categories on the Categories page first, then pick them here.
+          </p>
+        )}
+        <label>
+          Kind
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as SavedRule["kind"])}
+          >
+            <option value="income">Income (money coming in only)</option>
+            <option value="expense">Expense (refunds stay expenses)</option>
+            <option value="transfer">Transfer</option>
+          </select>
         </label>
         <button
           disabled={
@@ -138,7 +203,7 @@ export default function Rules() {
                   vendor: vendor.trim(),
                   pattern: pattern.trim().toLowerCase(),
                   category: category.trim(),
-                  kind: "expense",
+                  kind,
                   priority: 70,
                 });
               if (error) throw error;
@@ -159,7 +224,7 @@ export default function Rules() {
       </section>
       {(error || notice) && <p role="status">{error || notice}</p>}
       {rules.map((r) => (
-        <RuleRow key={r.id} rule={r} onSave={refresh} />
+        <RuleRow key={r.id} rule={r} categories={categories} onSave={refresh} />
       ))}
     </>
   );
