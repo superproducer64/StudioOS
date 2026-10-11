@@ -25,3 +25,11 @@ one. You can still type a new category; add it to the list afterwards if you wan
 - Names are unique per owner, ignoring capitals.
 - Migration `006_categories.sql` adds the unique-name index, allows income rules, and adds
   `seed_finance_categories()`. Run it in the Supabase SQL Editor before using the page.
+
+**Prepopulating from your history**
+
+- **Add categories from my transactions** reads every category already on your imported
+  transactions (skipping "Uncategorized" and anything you already have) and adds them, using
+  each one's most common type.
+- **Paste a list** adds many at once, one per line: `Name` or `Name, income|expense|transfer`.
+  Lines without a type use the "Default type" menu. Repeats and names you already have are skipped.
