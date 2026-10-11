@@ -174,13 +174,15 @@ function ReviewRow({
         </td>
         <td>
           <select
-            aria-label="Kind"
+            aria-label="Type"
             disabled={busy}
             value={kind}
             onChange={(e) => setKind(e.target.value)}
           >
             {["income", "expense", "transfer"].map((k) => (
-              <option key={k}>{k}</option>
+              <option key={k} value={k}>
+                {cap(k)}
+              </option>
             ))}
           </select>
         </td>
@@ -192,10 +194,12 @@ function ReviewRow({
             onChange={(e) => setClassification(e.target.value)}
           >
             {classifications.map((c) => (
-              <option key={c}>{c}</option>
+              <option key={c} value={c}>
+                {cap(c)}
+              </option>
             ))}
           </select>
-          <label>
+          <label className="tax-flag">
             <input
               type="checkbox"
               disabled={busy || !taxAllowed}
@@ -310,6 +314,7 @@ function ReviewRow({
     </>
   );
 }
+const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
 export default function Review() {
   const { transactions, ready, error, refresh } = useLedger();
   const { rows: projects, error: projectError } = useProjects();
@@ -400,8 +405,8 @@ export default function Review() {
               <th>Transaction</th>
               <th>Amount</th>
               <th>Category</th>
-              <th>Kind</th>
-              <th>Business / personal</th>
+              <th>Type</th>
+              <th>Business / Personal</th>
               <th>Project</th>
               <th>Review</th>
             </tr>
