@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import type { Transaction } from "@/lib/imports";
+import { matchesSearch } from "@/lib/search";
 import {
   reviewTransaction,
   tagTransaction,
@@ -330,10 +331,7 @@ export default function Review() {
       transactions.filter(
         (t) =>
           (show === "all" || !t.reviewed) &&
-          (!q ||
-            (t.description + " " + t.account + " " + t.category)
-              .toLowerCase()
-              .includes(q)),
+          matchesSearch(t, q),
       ),
     [transactions, show, q],
   );
@@ -363,7 +361,7 @@ export default function Review() {
         </select>
       </label>
       <label>
-        Search description, account or category
+        Search description, account, category or amount (45.20, 45, or 40..50)
         <input
           value={query}
           onChange={(e) => {

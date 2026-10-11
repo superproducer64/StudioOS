@@ -162,3 +162,20 @@ test("rule pattern suggestions drop numbers and card suffixes", () => {
   assert.equal(suggestPattern("ACH 2022-12-12 0000123"), "ach");
   assert.equal(titleCase("capital one"), "Capital One");
 });
+
+import { matchesSearch } from "../lib/search";
+test("search finds transactions by dollar amount, whole dollars and ranges", () => {
+  const t = (amountCents: number, description = "Vendor") => ({ description, account: "Bank", category: "Misc", amountCents });
+  assert.ok(matchesSearch(t(-4520), "45.20"));
+  assert.ok(matchesSearch(t(-4520), "$45.20"));
+  assert.ok(matchesSearch(t(-4520), "-45.20"));
+  assert.ok(!matchesSearch(t(-4520), "45.21"));
+  assert.ok(matchesSearch(t(-4520), "45"));
+  assert.ok(!matchesSearch(t(-4620), "45"));
+  assert.ok(matchesSearch(t(120000), "$1,200"));
+  assert.ok(matchesSearch(t(-4520), "40..50"));
+  assert.ok(matchesSearch(t(-4520), "40 to 45.20"));
+  assert.ok(!matchesSearch(t(-5100), "40..50"));
+  assert.ok(matchesSearch(t(-100, "Coffee 45"), "coffee"));
+  assert.ok(!matchesSearch(t(-100), "zzz"));
+});
