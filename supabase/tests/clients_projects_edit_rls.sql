@@ -15,10 +15,10 @@ insert into public.projects (id, client_id, name) values
 update public.clients set name = 'Acme Productions', email = 'a@example.test' where id = '00000000-0000-0000-0000-00000000c911';
 update public.projects set name = 'Pilot Episode', budget_cents = 500000 where id = '00000000-0000-0000-0000-00000000c921';
 do $$ begin
-  if (select name from public.clients where id = '00000000-0000-0000-0000-00000000c911') <> 'Acme Productions' then
+  if (select name from public.clients where id = '00000000-0000-0000-0000-00000000c911') is distinct from 'Acme Productions' then
     raise exception 'Client rename did not stick';
   end if;
-  if (select budget_cents from public.projects where id = '00000000-0000-0000-0000-00000000c921') <> 500000 then
+  if (select budget_cents from public.projects where id = '00000000-0000-0000-0000-00000000c921') is distinct from 500000 then
     raise exception 'Project edit did not stick';
   end if;
 end $$;
@@ -46,10 +46,10 @@ update public.projects set name = 'Hijacked' where id = '00000000-0000-0000-0000
 delete from public.projects where id = '00000000-0000-0000-0000-00000000c921';
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000c901"}';
 do $$ begin
-  if (select name from public.clients where id = '00000000-0000-0000-0000-00000000c911') <> 'Acme Productions' then
+  if (select name from public.clients where id = '00000000-0000-0000-0000-00000000c911') is distinct from 'Acme Productions' then
     raise exception 'Another owner edited this client';
   end if;
-  if (select name from public.projects where id = '00000000-0000-0000-0000-00000000c921') <> 'Pilot Episode' then
+  if (select name from public.projects where id = '00000000-0000-0000-0000-00000000c921') is distinct from 'Pilot Episode' then
     raise exception 'Another owner edited or deleted this project';
   end if;
 end $$;
