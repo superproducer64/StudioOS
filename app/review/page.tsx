@@ -315,8 +315,31 @@ export default function Review() {
   const { categories } = useCategories();
   const [show, setShow] = useState<"pending" | "all">("pending");
   const [notice, setNotice] = useState("");
-  const pending = transactions.filter((t) => !t.reviewed);
-  const visible = transactions.filter((t) => show === "all" || !t.reviewed);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
+  const pending = useMemo(
+    () => transactions.filter((t) => !t.reviewed),
+    [transactions],
+  );
+  // Each row carries several drop-downs, so only one page is drawn at a time; thousands of rows
+  // at once make the browser crawl.
+  const PAGE = 25;
+  const q = query.trim().toLowerCase();
+  const visible = useMemo(
+    () =>
+      transactions.filter(
+        (t) =>
+          (show === "all" || !t.reviewed) &&
+          (!q ||
+            (t.description + " " + t.account + " " + t.category)
+              .toLowerCase()
+              .includes(q)),
+      ),
+    [transactions, show, q],
+  );
+  const pages = Math.max(1, Math.ceil(visible.length / PAGE));
+  const current = Math.min(page, pages - 1);
+  const shown = visible.slice(current * PAGE, current * PAGE + PAGE);
   return (
     <>
       <h1>Review queue</h1>
@@ -330,12 +353,44 @@ export default function Review() {
         Show
         <select
           value={show}
-          onChange={(e) => setShow(e.target.value as "pending" | "all")}
+          onChange={(e) => {
+            setShow(e.target.value as "pending" | "all");
+            setPage(0);
+          }}
         >
           <option value="pending">Needs review</option>
           <option value="all">All transactions</option>
         </select>
       </label>
+      <label>
+        Search description, account or category
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(0);
+          }}
+        />
+      </label>
+      <p>
+        {visible.length
+          ? "Showing " +
+            (current * PAGE + 1) +
+            "–" +
+            (current * PAGE + shown.length) +
+            " of " +
+            visible.length
+          : "Nothing to show."}{" "}
+        <button disabled={current === 0} onClick={() => setPage(current - 1)}>
+          Previous
+        </button>
+        <button
+          disabled={current >= pages - 1}
+          onClick={() => setPage(current + 1)}
+        >
+          Next
+        </button>
+      </p>
       {(error || projectError) && (
         <p className="error">{error || projectError}</p>
       )}
@@ -354,7 +409,7 @@ export default function Review() {
             </tr>
           </thead>
           <tbody>
-            {visible.map((t) => (
+            {shown.map((t) => (
               <ReviewRow
                 key={[
                   t.id,
@@ -380,7 +435,7 @@ export default function Review() {
         <section>Import a CSV to begin.</section>
       )}
       {ready && !error && transactions.length > 0 && !visible.length && (
-        <section>Everything is reviewed.</section>
+        <section>{q ? "No matches for that search." : "Everything is reviewed."}</section>
       )}
     </>
   );
