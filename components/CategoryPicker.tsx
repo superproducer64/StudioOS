@@ -28,6 +28,7 @@ export function CategoryPicker({
     return (
       <span>
         <input
+          className="category-picker"
           aria-label={label ?? "Category"}
           disabled={disabled}
           autoFocus
@@ -41,6 +42,7 @@ export function CategoryPicker({
     );
   return (
     <select
+      className="category-picker"
       aria-label={label ?? "Category"}
       disabled={disabled}
       value={value}

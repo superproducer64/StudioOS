@@ -103,6 +103,18 @@ td input:not([type="checkbox"]) {
   min-width: 100px;
   max-width: 230px;
 }
+/* Category pickers show full names; long descriptions wrap instead of stealing the width. */
+td select.category-picker,
+td input.category-picker,
+select.category-picker {
+  width: 250px;
+  min-width: 250px;
+  max-width: 100%;
+}
+td:first-child {
+  max-width: 340px;
+  overflow-wrap: anywhere;
+}
 td button {
   display: block;
   width: 100%;
