@@ -1,8 +1,12 @@
 "use client";
 import { useState } from "react";
-import { blockingItems, useClients, type Client } from "@/lib/store";
+import { blockingItems, useRows, type Client } from "@/lib/store";
 import { getSupabase } from "@/lib/supabase";
-function ClientRow({ c, onChange }: { c: Client; onChange: () => Promise<void> }) {
+// A client has at most one Marketing brand profile. Its website is shown read-only here;
+// edit it on the Marketing page.
+type ClientWithSite = Client & { brand_profiles: { website: string | null }[] | null };
+const siteOf = (c: ClientWithSite) => c.brand_profiles?.find((p) => p.website)?.website ?? null;
+function ClientRow({ c, onChange }: { c: ClientWithSite; onChange: () => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [name, setName] = useState(c.name);
@@ -77,6 +81,15 @@ function ClientRow({ c, onChange }: { c: Client; onChange: () => Promise<void> }
         )}
       </td>
       <td>
+        {siteOf(c) ? (
+          <a href={siteOf(c)!} target="_blank" rel="noopener noreferrer">
+            {siteOf(c)!.replace(/^https?:\/\//i, "").replace(/\/$/, "")}
+          </a>
+        ) : (
+          "—"
+        )}
+      </td>
+      <td>
         {editing ? (
           <>
             <button disabled={busy || !name.trim()} onClick={() => void save()}>
@@ -120,7 +133,7 @@ function ClientRow({ c, onChange }: { c: Client; onChange: () => Promise<void> }
   );
 }
 export default function Clients() {
-  const { rows, ready, error, refresh } = useClients();
+  const { rows, ready, error, refresh } = useRows<ClientWithSite>("clients", "*, brand_profiles(website)", "name");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -166,6 +179,7 @@ export default function Clients() {
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th>Website</th>
               <th></th>
             </tr>
           </thead>
