@@ -33,3 +33,11 @@ test("categories from transactions skip Uncategorized and existing, using the mo
     { name: "Travel", kind: "expense" },
   ]);
 });
+test("plus and minus signs work as types in a pasted column", () => {
+  assert.deepEqual(parseCategoryList("Sales\t+\nRent\t-\nGifts, Income\nCredit card, fees, -", "transfer"), [
+    { name: "Sales", kind: "income" },
+    { name: "Rent", kind: "expense" },
+    { name: "Gifts", kind: "income" },
+    { name: "Credit card, fees", kind: "expense" },
+  ]);
+});

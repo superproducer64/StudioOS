@@ -71,7 +71,7 @@ export default function Categories() {
       <section>
         <h2>Paste a list</h2>
         <p>
-          One per line. Add a type after a comma if it is not the default, like
+          One per line. Add a type after a comma or tab if it is not the default (income, expense, transfer, or + / -), like
           {" "}<code>Client payments, income</code>. A two-column paste from a spreadsheet works too.
         </p>
         <label>

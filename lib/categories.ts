@@ -1,10 +1,16 @@
 export type CategoryKind = "income" | "expense" | "transfer";
 export type NewCategory = { name: string; kind: CategoryKind };
 const kinds = ["income", "expense", "transfer"];
+// Words or signs people use for a type in a spreadsheet column.
+const aliases: Record<string, CategoryKind> = {
+  income: "income", in: "income", "+": "income", credit: "income",
+  expense: "expense", out: "expense", "-": "expense", "−": "expense", "–": "expense", debit: "expense",
+  transfer: "transfer", xfer: "transfer",
+};
 const clean = (s: string) => s.trim().replace(/\s+/g, " ");
 
 /**
- * Parses a pasted list, one category per line. A line is "Name" or "Name, income|expense|transfer"
+ * Parses a pasted list, one category per line. A line is "Name" or "Name, income|expense|transfer" (or + for income, - for expense)
  * (a comma or tab between them, so a two-column paste from a spreadsheet works). Lines without a
  * type get `defaultKind`. Skips blanks, repeats (ignoring capitals) and names already in `existing`.
  */
@@ -19,8 +25,8 @@ export function parseCategoryList(
     const parts = line.split(/[,\t]/).map(clean);
     let kind = defaultKind;
     const last = parts[parts.length - 1]?.toLowerCase();
-    if (parts.length > 1 && kinds.includes(last)) {
-      kind = last as CategoryKind;
+    if (parts.length > 1 && last in aliases) {
+      kind = aliases[last];
       parts.pop();
     }
     const name = clean(parts.join(", "));
