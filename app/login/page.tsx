@@ -7,6 +7,11 @@ export default function Login() {
   const [signedIn, setSignedIn] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  // True after the user opens the reset link from their email: Supabase signs them in briefly
+  // so they can choose a new password.
+  const [recovering, setRecovering] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   useEffect(() => {
     try {
       const supabase = getSupabase();
@@ -22,8 +27,10 @@ export default function Login() {
         .catch((e) => {
           if (active) setNotice((e as Error).message);
         });
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (active) setSignedIn(session?.user.email || null);
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!active) return;
+        setSignedIn(session?.user.email || null);
+        if (event === "PASSWORD_RECOVERY") setRecovering(true);
       });
       return () => {
         active = false;
@@ -58,6 +65,42 @@ export default function Login() {
       setBusy(false);
     }
   }
+  async function sendReset() {
+    setBusy(true);
+    setNotice("");
+    try {
+      const { error } = await getSupabase().auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin + "/login",
+      });
+      if (error) throw error;
+      // The same message whether or not the email has an account, so this cannot be used to
+      // find out who has one.
+      setNotice("If that email has an account, a password reset link is on its way.");
+    } catch (e) {
+      setNotice((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function chooseNewPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 8) return setNotice("Use at least 8 characters.");
+    if (newPassword !== confirmPassword) return setNotice("The two passwords do not match.");
+    setBusy(true);
+    setNotice("");
+    try {
+      const { error } = await getSupabase().auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setRecovering(false);
+      setNewPassword("");
+      setConfirmPassword("");
+      setNotice("Password changed. You are signed in.");
+    } catch (err) {
+      setNotice((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function signout() {
     setBusy(true);
     try {
@@ -78,7 +121,36 @@ export default function Login() {
         transactions are stored in Supabase.
       </p>
       <section>
-        {signedIn ? (
+        {recovering ? (
+          <form onSubmit={chooseNewPassword}>
+            <p>Choose a new password for {signedIn ?? "your account"}.</p>
+            <label>
+              New password
+              <input
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </label>
+            <label>
+              Confirm new password
+              <input
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </label>
+            <button disabled={busy} type="submit">
+              Change password
+            </button>
+          </form>
+        ) : signedIn ? (
           <>
             <p>Signed in as {signedIn}</p>
             <button disabled={busy} onClick={() => void signout()}>
@@ -123,12 +195,16 @@ export default function Login() {
             >
               Create account
             </button>
+            <button disabled={busy || !email.trim()} type="button" onClick={() => void sendReset()}>
+              Forgot password?
+            </button>
           </form>
         )}
         {notice && <p role="status">{notice}</p>}
         <small>
-          For email confirmation, configure Supabase Auth Site URL to your local
-          or deployed app URL before signup.
+          For email confirmation and password reset, add your local or deployed
+          app address (for example http://localhost:3000/login) under Supabase
+          Authentication, URL Configuration, Redirect URLs.
         </small>
       </section>
     </>

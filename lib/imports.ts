@@ -19,6 +19,10 @@ export type Transaction = {
   classification?: string;
   taxDeductible?: boolean;
   projectId?: string | null;
+  // The invoice this deposit was matched to, if any.
+  invoiceId?: string | null;
+  // True when the import it came from was reversed.
+  voided?: boolean;
 };
 export type Mapping = {
   date: string;

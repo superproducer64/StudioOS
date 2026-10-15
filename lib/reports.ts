@@ -189,3 +189,13 @@ export function parseCents(input: string): number | null {
   const cents = Number(d) * 100 + Number(c.padEnd(2, "0"));
   return Number.isSafeInteger(cents) ? cents : null;
 }
+
+/** Like parseCents, but allows a leading minus (a card balance that is owed). */
+export function parseSignedCents(input: string): number | null {
+  const t = input.trim();
+  if (t.startsWith("-")) {
+    const v = parseCents(t.slice(1).trim());
+    return v === null || v === 0 ? v : -v;
+  }
+  return parseCents(t);
+}
