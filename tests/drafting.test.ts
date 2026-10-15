@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildPrompt, confirmItems, parseDraft, SYSTEM_PROMPT } from "../lib/drafting";
+import { approvalBlockers, buildPrompt, canDraftFor, confirmItems, parseDraft, SYSTEM_PROMPT } from "../lib/drafting";
 import { complete, readLlmConfig } from "../lib/llm";
 
 const profile = {
@@ -74,4 +74,11 @@ test("complete sends the key only in headers and maps errors without leaking it"
       (e: Error) => re.test(e.message) && !e.message.includes("SECRET"),
     );
   }
+});
+
+test("drafts with placeholders cannot be approved, and starter tasks get no AI button", () => {
+  assert.deepEqual(approvalBlockers("All good."), []);
+  assert.equal(approvalBlockers("Call [CONFIRM: phone] or [CONFIRM:]").length, 2);
+  assert.equal(canDraftFor("starter"), false);
+  for (const s of ["manual", "search_console", "analytics", "ai"]) assert.equal(canDraftFor(s), true);
 });

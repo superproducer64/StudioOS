@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
+import { approvalBlockers, canDraftFor } from "@/lib/drafting";
 import { useClients, useRows } from "@/lib/store";
 import {
   analyticsSuggestions,
@@ -209,7 +210,7 @@ function Actions({
           ) : (
             a.status === "open" && (
               <>
-                {aiOn && (
+                {aiOn && canDraftFor(a.source) && (
                   <button disabled={busy} onClick={() => void draftWithAi(a)}>
                     Draft with AI
                   </button>
@@ -450,6 +451,8 @@ function DraftCard({ d, onChange }: { d: MarketingDraft; onChange: () => Promise
   const [error, setError] = useState("");
   const locked = d.status === "published" || d.status === "archived";
   const dirty = title !== d.title || body !== d.body || channel !== d.channel;
+  // Judged on the saved text, since that is what approval applies to.
+  const blockers = approvalBlockers(d.body);
   async function run(fn: () => PromiseLike<{ error: { message: string } | null }>) {
     setBusy(true);
     setError("");
@@ -529,8 +532,22 @@ function DraftCard({ d, onChange }: { d: MarketingDraft; onChange: () => Promise
           <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
         </label>
       )}
+      {blockers.length > 0 && !locked && (
+        <div className="error" role="alert">
+          <strong>Not ready to approve:</strong>
+          <ul>
+            {blockers.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {draftTransitions(d.status).map((t) => (
-        <button key={t.to} disabled={busy || dirty} onClick={() => void move(t.to)}>
+        <button
+          key={t.to}
+          disabled={busy || dirty || (t.to === "approved" && blockers.length > 0)}
+          onClick={() => void move(t.to)}
+        >
           {t.label}
         </button>
       ))}

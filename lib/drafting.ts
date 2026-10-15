@@ -89,3 +89,12 @@ export function parseDraft(raw: string): ParsedDraft {
 export function confirmItems(body: string): string[] {
   return [...body.matchAll(/\[CONFIRM:\s*([^\]]*)\]/gi)].map((m) => m[1].trim());
 }
+
+/** The reasons a draft cannot be approved yet. Placeholders must be filled in or removed first. */
+export function approvalBlockers(body: string): string[] {
+  const gaps = confirmItems(body);
+  return gaps.map((g) => "Fill in or remove: " + (g || "unfinished [CONFIRM] placeholder"));
+}
+
+/** Whether the AI drafting button makes sense for a task. Starter tasks are planning checklists. */
+export const canDraftFor = (source: string) => source !== "starter";
