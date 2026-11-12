@@ -13,6 +13,7 @@
     "lib/imports.ts",
     "lib/rules.ts",
     "lib/search.ts",
+    "lib/manual.ts",
     "lib/categories.ts",
     "lib/reports.ts",
     "lib/marketing.ts",
