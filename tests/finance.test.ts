@@ -179,3 +179,23 @@ test("search finds transactions by dollar amount, whole dollars and ranges", () 
   assert.ok(matchesSearch(t(-100, "Coffee 45"), "coffee"));
   assert.ok(!matchesSearch(t(-100), "zzz"));
 });
+
+import { buildManualTransaction } from "../lib/manual";
+test("manual entry stores money out negative, in positive, and needs a description and amount", () => {
+  const mk = (o: Partial<Parameters<typeof buildManualTransaction>[0]> = {}) =>
+    buildManualTransaction(
+      { date: "2026-11-11", description: "Cash for crew lunch", amount: "$45.20", direction: "out", category: "", kind: "expense", ...o },
+      "acct1", "Cash", "USD", undefined, "u1",
+    );
+  assert.equal(mk().amountCents, -4520);
+  assert.equal(mk({ amount: "-45.20" }).amountCents, -4520);
+  assert.equal(mk({ direction: "in", kind: "income" }).amountCents, 4520);
+  assert.equal(mk().reviewed, false);
+  assert.equal(mk({ category: "Meals", kind: "expense" }).category, "Meals");
+  assert.equal(mk().id, mk().id);
+  assert.notEqual(mk().id, buildManualTransaction({ date: "2026-11-11", description: "x", amount: "1", direction: "out", category: "", kind: "expense" }, "acct1", "Cash", "USD", undefined, "u2").id);
+  assert.throws(() => mk({ description: "  " }), /description/);
+  assert.throws(() => mk({ amount: "0" }), /more than zero/);
+  assert.throws(() => mk({ amount: "abc" }), /Invalid amount/);
+  assert.throws(() => mk({ date: "2026-02-30" }), /Invalid date/);
+});

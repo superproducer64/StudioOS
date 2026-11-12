@@ -76,7 +76,7 @@ export function parseCsv(text: string) {
     });
   return { headers: headers.filter(Boolean), rows };
 }
-function dateISO(input: string) {
+export function dateISO(input: string) {
   const v = input.trim();
   let y: number, m: number, d: number;
   const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/.exec(v);
